@@ -5,11 +5,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
 
-#ifdef __linux
+#define termios asmtermios
+#define termio asmtermio
+#define winsize asmwinsize
 #include <asm/termios.h>
-#endif
+#undef  winsize
+#undef  termio
+#undef  termios
+#include <sys/ioctl.h>
 
 #include "types.h"
 #include "hardware.h"
