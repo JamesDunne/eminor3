@@ -34,7 +34,7 @@ int midi_init(void) {
         char err[100];
         sprintf(err, "open('%s')", midi_fname);
         perror(err);
-        return -1;
+        return 1;
     }
 
     // Requirements:
@@ -62,7 +62,7 @@ int midi_init(void) {
     ioctl(uart0_fd, TCSETS2, &tio);
 #endif
 
-    return uart0_fd;
+    return 0;
 }
 
 void midi_send_cmd1_impl(u8 cmd_byte, u8 data1) {

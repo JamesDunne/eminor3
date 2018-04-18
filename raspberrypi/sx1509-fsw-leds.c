@@ -130,7 +130,7 @@ int fsw_init(void) {
     return 0;
 
     fail:
-    return -1;
+    return 2;
 }
 
 // Initialize SX1509 for LEDs by configuring all pins as outputs:
@@ -138,7 +138,7 @@ int led_init(void) {
     if (i2c_fd == -1) {
         // Open I2C bus for FSWs and LEDs:
         if (i2c_init() < 0) {
-            return 2;
+            return 3;
         }
     }
 
@@ -157,26 +157,7 @@ int led_init(void) {
     return 0;
 
     fail:
-    return -1;
-}
-
-int sx1509_init(void) {
-    // Open I2C bus for FSWs and LEDs:
-    if (i2c_init() < 0) {
-        return 2;
-    }
-
-    // Init SX1509 for reading FSWs (buttons):
-    if (fsw_init() < 0) {
-        return 3;
-    }
-
-    // Init SX1509 for outputting LEDs:
-    if (led_init() < 0) {
-        return 4;
-    }
-
-    return 0;
+    return 3;
 }
 
 // Poll 16 foot-switch states:

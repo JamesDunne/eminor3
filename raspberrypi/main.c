@@ -48,18 +48,18 @@ int main(void) {
     t.tv_nsec = 10L * 1000000L;  // 10 ms
 
     // Open UART0 for MIDI write:
-    if (midi_init() < 0) {
-        return 1;
+    if ((retval = midi_init())) {
+        return retval;
     }
 
     // Init SX1509 for reading FSWs (buttons):
-    if (fsw_init() < 0) {
-        return 3;
+    if ((retval = fsw_init())) {
+        return retval;
     }
 
     // Init SX1509 for outputting LEDs:
-    if (led_init() < 0) {
-        return 4;
+    if ((retval = led_init())) {
+        return retval;
     }
 
     // Initialize controller:
