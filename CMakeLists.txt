@@ -21,15 +21,12 @@ add_executable(eminor3
         common/v5_bcd_lookup.h
         common/v5_fx_names.h
         raspberrypi/flash.c
-        raspberrypi/fsw.c
         raspberrypi/fsw.h
-        raspberrypi/i2c.c
         raspberrypi/i2c.h
         raspberrypi/lcd.c
-        raspberrypi/leds.c
         raspberrypi/leds.h
         raspberrypi/main.c
         raspberrypi/midi.c
         raspberrypi/midi.h
         raspberrypi/sx1509_registers.h
-        )
+        raspberrypi/sx1509-fsw-leds.c)

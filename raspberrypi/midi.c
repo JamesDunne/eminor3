@@ -54,7 +54,7 @@ int midi_init(void) {
 }
 
 void midi_send_cmd1_impl(u8 cmd_byte, u8 data1) {
-    int count;
+    ssize_t count;
     u8 buf[2];
     buf[0] = cmd_byte;
     buf[1] = data1;
@@ -67,7 +67,7 @@ void midi_send_cmd1_impl(u8 cmd_byte, u8 data1) {
 }
 
 void midi_send_cmd2_impl(u8 cmd_byte, u8 data1, u8 data2) {
-    int count;
+    ssize_t count;
     u8 buf[3];
     buf[0] = cmd_byte;
     buf[1] = data1;

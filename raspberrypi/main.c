@@ -19,6 +19,7 @@
 #include "i2c.h"
 #include "midi.h"
 #include "fsw.h"
+#include "leds.h"
 
 // Hardware interface from controller:
 void debug_log(const char *fmt, ...) {
@@ -41,6 +42,7 @@ void debug_log(const char *fmt, ...) {
 
 // Main function:
 int main(void) {
+    int retval;
     struct timespec t;
     t.tv_sec  = 0;
     t.tv_nsec = 10L * 1000000L;  // 10 ms
@@ -48,11 +50,6 @@ int main(void) {
     // Open UART0 for MIDI write:
     if (midi_init() < 0) {
         return 1;
-    }
-
-    // Open I2C bus for FSWs and LEDs:
-    if (i2c_init() < 0) {
-        return 2;
     }
 
     // Init SX1509 for reading FSWs (buttons):
