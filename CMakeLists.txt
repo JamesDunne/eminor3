@@ -5,7 +5,6 @@ set(CMAKE_C_STANDARD 11)
 
 include_directories(common)
 include_directories(raspberrypi)
-include_directories(raspberrypi/sx1509)
 
 add_executable(eminor3
         common/controller-data.c
@@ -29,4 +28,5 @@ add_executable(eminor3
         raspberrypi/midi.c
         raspberrypi/midi.h
         raspberrypi/sx1509_registers.h
-        raspberrypi/sx1509-fsw-leds.c)
+        raspberrypi/sx1509-fsw-leds.c
+        raspberrypi/fsw-usb.c)
