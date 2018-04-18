@@ -7,19 +7,17 @@
 
 // --------------- Flash memory functions:
 
-#if HW_VERSION == 4
-u8 flash_bank[3][4096] = {
+rom const u8 flash_bank[3][4096] = {
     {
-#include "../PIC/flash_v4_bank0.h"
+#include "flash_v5_bank0.h"
     },
     {
-#include "../PIC/flash_v4_bank1.h"
+#include "flash_v5_bank1.h"
     },
     {
-#include "../PIC/flash_v4_bank2.h"
+#include "flash_v5_bank2.h"
     }
 };
-#endif
 
 // Flash addresses are 0-based where 0 is the first available byte of
 // non-program flash memory.

@@ -1,4 +1,6 @@
 
+#pragma once
+
 // --------------- Compiler hacks:
 
 #define STATIC_ASSERT(cond,ident) typedef char _static_assert_##ident[(cond)?1:-1]

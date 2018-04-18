@@ -83,8 +83,6 @@ Press AMP to switch row to AMP mode
 
 */
 
-#if HW_VERSION == 5
-
 #include "util.h"
 
 #include "program-v5.h"
@@ -1310,9 +1308,3 @@ void controller_handle(void) {
     // Record the previous state:
     last = curr;
 }
-
-#else
-
-typedef int nothing5;
-
-#endif
