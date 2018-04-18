@@ -2,11 +2,14 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include <unistd.h>
+#include <sys/ioctl.h>
+
 #include <linux/i2c-dev.h>
 // Terrible portability hack between arm-linux-gnueabihf-gcc on Mac OS X and native gcc on raspbian.
-#ifndef I2C_M_RD
+# ifndef I2C_M_RD
 #include <linux/i2c.h>
-#endif
+# endif
 
 #include "types.h"
 #include "hardware.h"

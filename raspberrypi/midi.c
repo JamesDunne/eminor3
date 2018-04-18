@@ -4,8 +4,12 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <asm/termios.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
+
+#ifdef __linux
+#include <asm/termios.h>
+#endif
 
 #include "types.h"
 #include "hardware.h"
@@ -17,7 +21,9 @@ const char *midi_fname = "/dev/ttyAMA0";
 
 // Open UART0 device for MIDI communications and set baud rate to 31250 per MIDI standard:
 int midi_init(void) {
+#ifdef __linux
     struct termios2 tio;
+#endif
 
     uart0_fd = open(midi_fname, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (uart0_fd == -1) {
@@ -43,12 +49,14 @@ int midi_init(void) {
     // termios2 to set a custom baud rate of 31250 which is the MIDI standard.
     
     // Set baud rate to 31250 for MIDI:
+#ifdef __linux
     ioctl(uart0_fd, TCGETS2, &tio);
     tio.c_cflag &= ~CBAUD;
     tio.c_cflag |= BOTHER;
     tio.c_ispeed = 31250;
     tio.c_ospeed = 31250;
     ioctl(uart0_fd, TCSETS2, &tio);
+#endif
 
     return uart0_fd;
 }
