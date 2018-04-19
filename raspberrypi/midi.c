@@ -20,8 +20,14 @@
 
 // Global variable for holding file descriptor to talk to UART0 for MIDI communications:
 int uart0_fd = -1;
+
 // Default UART0 device name on Raspberry Pi Model B:
-const char *midi_fname = "/dev/ttyAMA0";
+//const char *midi_fname = "/dev/ttyAMA0";
+
+// Use "Fore" USB-MIDI adapter device on Raspberry Pi 3:
+// P:  Vendor=552d ProdID=4348 Rev=02.11
+// S:  Product=USB Midi
+const char *midi_fname = "/dev/snd/by-id/usb-552d_USB_Midi-00";
 
 // Open UART0 device for MIDI communications and set baud rate to 31250 per MIDI standard:
 int midi_init(void) {

@@ -6,7 +6,10 @@
 
 #include "types.h"
 
-// Bus 001 Device 005: ID 0c45:7404 Microdia
+// Use USB PCsensor FootSwitch3-F1.8 as remote footswitch controller:
+// P:  Vendor=0c45 ProdID=7404 Rev=00.01
+// S:  Manufacturer=PCsensor
+// S:  Product=FootSwitch3-F1.8
 const char *fsw_evdev_name = "/dev/input/by-id/usb-PCsensor_FootSwitch3-F1.8-event-mouse";
 
 int fsw_fd = -1;
@@ -36,7 +39,7 @@ u16 fsw_poll(void) {
     size_t size = sizeof(struct input_event);
 
     // Check for event data since last read:
-    while (read(fsw_fd, &ev, size) == size) {
+    while ((rd = read(fsw_fd, &ev, size)) == size) {
 #if 1
         // debug code to view event data:
         for (int i = 0; i < rd / size; i++) {
