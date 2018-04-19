@@ -38,9 +38,12 @@ u16 fsw_poll(void) {
     struct input_event ev;
     size_t size = sizeof(struct input_event);
 
+    // Clear auto-repeat flags:
+    fsw_state &= ~((M_1 | M_2 | M_3) << 8u);
+
     // Check for event data since last read:
     while (read(fsw_fd, &ev, size) == size) {
-#if 1
+#if 0
         // debug code to view event data:
         printf("0x%04X 0x%04X 0x%08X\n", ev.type, ev.code, ev.value);
 #endif
@@ -57,24 +60,11 @@ u16 fsw_poll(void) {
         //0x0001 0x001E 0x00000000
         //0x0000 0x0000 0x00000000
 
-
         // press middle button
         //0x0004 0x0004 0x00070005
         //0x0001 0x0030 0x00000001
         //0x0000 0x0000 0x00000000
         // auto-repeat
-        //0x0001 0x0030 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x0030 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x0030 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x0030 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x0030 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x0030 0x00000002
-        //0x0000 0x0000 0x00000001
         //0x0001 0x0030 0x00000002
         //0x0000 0x0000 0x00000001
         // release middle button
@@ -89,47 +79,48 @@ u16 fsw_poll(void) {
         // auto-repeat
         //0x0001 0x002E 0x00000002
         //0x0000 0x0000 0x00000001
-        //0x0001 0x002E 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x002E 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x002E 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x002E 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x002E 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x002E 0x00000002
-        //0x0000 0x0000 0x00000001
-        //0x0001 0x002E 0x00000002
-        //0x0000 0x0000 0x00000001
         // release right button
         //0x0004 0x0004 0x00070006
         //0x0001 0x002E 0x00000000
         //0x0000 0x0000 0x00000000
 
-        switch (ev.type) {
-            case 1:
-                switch (ev.code) {
-                    // Left:
-                    case 0x1E:
-                        break;
-                    // Middle:
-                    case 0x30:
-                        if (ev.value == 0) {
-                            fsw_state &= ~(M_8 << 8u);
-                        } else if (ev.value == 1) {
-                            fsw_state |= (M_8 << 8u);
-                        }
-                        break;
-                    // Right:
-                    case 0x2E:
-                        if (ev.value == 0) {
-                            fsw_state &= ~(M_8);
-                        } else if (ev.value == 1) {
-                            fsw_state |= (M_8);
-                        }
-                        break;
+        // Ignore type=4 and type=0 events:
+        if (ev.type != 1) {
+            continue;
+        }
+
+        switch (ev.code) {
+            case 0x1E:
+                // Left:
+                if (ev.value == 0) {
+                    fsw_state &= ~(M_1);
+                } else if (ev.value == 1) {
+                    fsw_state |= (M_1);
+                } else if (ev.value == 2) {
+                    // auto-repeat:
+                    fsw_state |= (M_1 << 8u);
+                }
+                break;
+            case 0x30:
+                // Middle:
+                if (ev.value == 0) {
+                    fsw_state &= ~(M_2);
+                } else if (ev.value == 1) {
+                    fsw_state |= (M_2);
+                } else if (ev.value == 2) {
+                    // auto-repeat:
+                    fsw_state |= (M_2 << 8u);
+                }
+                break;
+            case 0x2E:
+                // Right:
+                if (ev.value == 0) {
+                    fsw_state &= ~(M_3);
+                } else if (ev.value == 1) {
+                    fsw_state |= (M_3);
+                } else if (ev.value == 2) {
+                    // auto-repeat:
+                    fsw_state |= (M_2 << 8u);
                 }
                 break;
             default:
@@ -145,5 +136,5 @@ int led_init(void) {
 
 // Set 16 LED states:
 void led_set(u16 leds) {
-    (void)leds;
+    (void) leds;
 }

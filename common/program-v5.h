@@ -40,7 +40,7 @@ struct program {
     // MIDI CC numbers for FX enable/disable for each amp:
     u8 fx_midi_cc[2][5];
 
-    // 34 bytes
+    // 3 bytes
     u8 _padding[3];
 
 	u8 scene_count;
