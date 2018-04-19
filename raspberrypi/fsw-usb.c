@@ -11,24 +11,27 @@
 // P:  Vendor=0c45 ProdID=7404 Rev=00.01
 // S:  Manufacturer=PCsensor
 // S:  Product=FootSwitch3-F1.8
-const char *fsw_evdev_name = "/dev/input/by-id/usb-PCsensor_FootSwitch3-F1.8-event-mouse";
+#define fsw_evdev_name "/dev/input/by-id/usb-PCsensor_FootSwitch3-F1.8-event-mouse"
 
 int fsw_fd = -1;
 u16 fsw_state = 0;
 
 int fsw_init(void) {
-    int flags;
+    unsigned int rep[2];
 
     fsw_fd = open(fsw_evdev_name, O_RDONLY | O_NONBLOCK);
     if (fsw_fd < 0) {
+        perror("open(" fsw_evdev_name ")");
         return -1;
     }
 
-#if 0
-    // Set to non-blocking mode:
-    flags = fcntl(fsw_fd, F_GETFL, 0);
-    fcntl(fsw_fd, F_SETFL, flags | O_NONBLOCK);
-#endif
+    // Adjust repeat rate:
+    if (ioctl(fsw_fd, EVIOCGREP, rep) < 0) {
+        perror("ioctl EVIOCGREP failed");
+        return -1;
+    }
+
+    printf("rep = {%d, %d}\n", rep[0], rep[1]);
 
     // Initialize fsw state:
     fsw_state = 0;
