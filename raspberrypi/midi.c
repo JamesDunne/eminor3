@@ -17,11 +17,11 @@ int midi_fd = -1;
 // Use "Fore" USB-MIDI adapter device on Raspberry Pi 3:
 // P:  Vendor=552d ProdID=4348 Rev=02.11
 // S:  Product=USB Midi
-const char *midi_fname = "/dev/snd/by-id/usb-552d_USB_Midi-00";
+const char *midi_fname = "/dev/snd/midiC1D0";
 
 // Open UART0 device for MIDI communications and set baud rate to 31250 per MIDI standard:
 int midi_init(void) {
-    midi_fd = open(midi_fname, O_WRONLY | O_NONBLOCK);
+    midi_fd = open(midi_fname, O_WRONLY);
     if (midi_fd == -1) {
         char err[100];
         sprintf(err, "open('%s')", midi_fname);
