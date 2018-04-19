@@ -31,21 +31,16 @@ int fsw_init(void) {
 }
 
 u16 fsw_poll(void) {
-    struct input_event ev[64];
+    struct input_event ev;
     ssize_t rd;
     size_t size = sizeof(struct input_event);
 
     // Check for event data since last read:
-    do {
-        rd = read(fsw_fd, ev, size * 64);
-        if (rd == -1) {
-            return fsw_state;
-        }
-
-#if 0
+    while (read(fsw_fd, &ev, size) == size) {
+#if 1
         // debug code to view event data:
         for (int i = 0; i < rd / size; i++) {
-            printf("0x%04X 0x%04X 0x%08X\n", ev[i].type, ev[i].code, ev[i].value);
+            printf("0x%04X 0x%04X 0x%08X\n", ev.type, ev.code, ev.value);
         }
 #endif
         // press left button
@@ -111,8 +106,28 @@ u16 fsw_poll(void) {
         //0x0001 0x002E 0x00000000
         //0x0000 0x0000 0x00000000
 
-        // TODO: process the events and flip FSW bits
-    } while (rd == size * 64);
+        // press right button
+        //0x0001 0x002E 0x00000001
+        // auto-repeat
+        //0x0001 0x002E 0x00000002
+        //0x0001 0x002E 0x00000002
+        //0x0001 0x002E 0x00000002
+        //0x0001 0x002E 0x00000002
+        //0x0001 0x002E 0x00000002
+        //0x0001 0x002E 0x00000002
+        //0x0001 0x002E 0x00000002
+        //0x0001 0x002E 0x00000002
+        // release right button
+        //0x0001 0x002E 0x00000000
+
+        switch (ev.type) {
+            case 1:
+
+                break;
+            default:
+                break;
+        }
+    };
 
     return fsw_state;
 }

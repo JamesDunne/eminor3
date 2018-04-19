@@ -27,6 +27,4 @@ add_executable(eminor3
         raspberrypi/main.c
         raspberrypi/midi.c
         raspberrypi/midi.h
-        raspberrypi/sx1509_registers.h
-        raspberrypi/sx1509-fsw-leds.c
         raspberrypi/fsw-usb.c)
