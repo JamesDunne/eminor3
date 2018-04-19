@@ -25,13 +25,24 @@ int fsw_init(void) {
         return -1;
     }
 
-    // Adjust repeat rate:
+    // Query repeat rate:
     if (ioctl(fsw_fd, EVIOCGREP, rep) < 0) {
-        perror("ioctl EVIOCGREP failed");
+        perror("ioctl EVIOCGREP");
         return -1;
     }
 
+    // rep = {250, 33}. 250 is ms delay before repeat, 33 is ms repeat period.
+#if 0
     printf("rep = {%d, %d}\n", rep[0], rep[1]);
+#endif
+    rep[0] = 500;
+    rep[1] = 50;
+
+    // Set repeat rate:
+    if (ioctl(fsw_fd, EVIOCSREP, rep) < 0) {
+        perror("ioctl EVIOCSREP");
+        return -1;
+    }
 
     // Initialize fsw state:
     fsw_state = 0;
