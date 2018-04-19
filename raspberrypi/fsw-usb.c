@@ -43,10 +43,9 @@ u16 fsw_poll(void) {
     while ((rd = read(fsw_fd, &ev, size)) == size) {
 #if 1
         // debug code to view event data:
-        for (int i = 0; i < rd / size; i++) {
-            printf("0x%04X 0x%04X 0x%08X\n", ev.type, ev.code, ev.value);
-        }
+        printf("0x%04X 0x%04X 0x%08X\n", ev.type, ev.code, ev.value);
 #endif
+
         // press left button
         //0x0004 0x0004 0x00070004
         //0x0001 0x001E 0x00000001
@@ -127,7 +126,7 @@ u16 fsw_poll(void) {
                     // Right:
                     case 0x2E:
                         if (ev.value == 0) {
-                            fsw_state &= ~(M_8 << 8u);
+                            fsw_state &= ~(M_8);
                         } else if (ev.value == 1) {
                             fsw_state |= M_8;
                         }
