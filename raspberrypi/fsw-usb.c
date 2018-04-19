@@ -5,6 +5,7 @@
 #include <fcntl.h>
 
 #include "types.h"
+#include "hardware.h"
 
 // Use USB PCsensor FootSwitch3-F1.8 as remote footswitch controller:
 // P:  Vendor=0c45 ProdID=7404 Rev=00.01
@@ -109,23 +110,29 @@ u16 fsw_poll(void) {
         //0x0001 0x002E 0x00000000
         //0x0000 0x0000 0x00000000
 
-        // press right button
-        //0x0001 0x002E 0x00000001
-        // auto-repeat
-        //0x0001 0x002E 0x00000002
-        //0x0001 0x002E 0x00000002
-        //0x0001 0x002E 0x00000002
-        //0x0001 0x002E 0x00000002
-        //0x0001 0x002E 0x00000002
-        //0x0001 0x002E 0x00000002
-        //0x0001 0x002E 0x00000002
-        //0x0001 0x002E 0x00000002
-        // release right button
-        //0x0001 0x002E 0x00000000
-
         switch (ev.type) {
             case 1:
-
+                switch (ev.code) {
+                    // Left:
+                    case 0x1E:
+                        break;
+                    // Middle:
+                    case 0x30:
+                        if (ev.value == 0) {
+                            fsw_state &= ~(M_8 << 8u);
+                        } else if (ev.value == 1) {
+                            fsw_state |= M_8 << 8u;
+                        }
+                        break;
+                    // Right:
+                    case 0x2E:
+                        if (ev.value == 0) {
+                            fsw_state &= ~(M_8 << 8u);
+                        } else if (ev.value == 1) {
+                            fsw_state |= M_8;
+                        }
+                        break;
+                }
                 break;
             default:
                 break;
