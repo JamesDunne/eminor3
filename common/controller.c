@@ -154,7 +154,6 @@ enum rowstate_mode {
     ROWMODE_FX
 };
 
-#pragma udata state
 // Tap tempo CC value (toggles between 0x00 and 0x7F):
 u8 tap;
 
@@ -202,19 +201,14 @@ struct state curr, last;
 struct {
     u8 amp_byp, amp_xy, cab_xy, gain, clean_gain, gate;
 } last_amp[2];
-#pragma udata
 
 // Loaded setlist:
-#pragma udata program
 struct set_list sl;
 // Loaded program:
 struct program pr;
-#pragma udata
 
 // BCD-encoded dB value table (from PIC/v4_lookup.h):
-#pragma udata bcd
 extern rom const u16 dB_bcd_lookup[128];
-#pragma udata
 
 // Set Axe-FX CC value
 #define midi_axe_cc(cc, val) midi_send_cmd2(0xB, axe_midi_channel, cc, val)
