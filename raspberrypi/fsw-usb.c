@@ -36,11 +36,10 @@ int fsw_init(void) {
 
 u16 fsw_poll(void) {
     struct input_event ev;
-    ssize_t rd;
     size_t size = sizeof(struct input_event);
 
     // Check for event data since last read:
-    while ((rd = read(fsw_fd, &ev, size)) == size) {
+    while (read(fsw_fd, &ev, size) == size) {
 #if 1
         // debug code to view event data:
         printf("0x%04X 0x%04X 0x%08X\n", ev.type, ev.code, ev.value);
@@ -120,7 +119,7 @@ u16 fsw_poll(void) {
                         if (ev.value == 0) {
                             fsw_state &= ~(M_8 << 8u);
                         } else if (ev.value == 1) {
-                            fsw_state |= M_8 << 8u;
+                            fsw_state |= (M_8 << 8u);
                         }
                         break;
                     // Right:
@@ -128,7 +127,7 @@ u16 fsw_poll(void) {
                         if (ev.value == 0) {
                             fsw_state &= ~(M_8);
                         } else if (ev.value == 1) {
-                            fsw_state |= M_8;
+                            fsw_state |= (M_8);
                         }
                         break;
                 }
