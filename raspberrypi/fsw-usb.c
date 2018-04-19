@@ -19,14 +19,16 @@ u16 fsw_state = 0;
 int fsw_init(void) {
     int flags;
 
-    fsw_fd = open(fsw_evdev_name, O_RDONLY);
+    fsw_fd = open(fsw_evdev_name, O_RDONLY | O_NONBLOCK);
     if (fsw_fd < 0) {
         return -1;
     }
 
+#if 0
     // Set to non-blocking mode:
     flags = fcntl(fsw_fd, F_GETFL, 0);
     fcntl(fsw_fd, F_SETFL, flags | O_NONBLOCK);
+#endif
 
     // Initialize fsw state:
     fsw_state = 0;
