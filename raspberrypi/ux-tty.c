@@ -8,6 +8,7 @@
 #include <linux/input.h>
 #include <termios.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 #include "types.h"
 #include "hardware.h"
@@ -29,6 +30,8 @@ struct winsize tty_win;
 struct termios saved_attributes;
 
 // Touchscreen input:
+void ansi_move_cursor(int row, int col);
+
 #define ts_input "/dev/input/event1"
 #define ts_device_name "FT5406 memory based driver"
 int ts_fd = -1;
@@ -38,6 +41,11 @@ int ts_x_max;
 
 int ts_y_min;
 int ts_y_max;
+
+int ts_x, ts_col;
+int ts_y, ts_row;
+
+bool ux_redraw = true;
 
 // Resets tty0 to initial state on exit:
 void reset_input_mode(void) {
@@ -151,6 +159,33 @@ int ts_init(void) {
     return 0;
 }
 
+bool ts_poll(void) {
+    bool changed = false;
+    struct input_event ev;
+    size_t size = sizeof(struct input_event);
+
+    while (read(ts_fd, &ev, size) == size) {
+        if (ev.type != EV_ABS) continue;
+
+        switch (ev.code) {
+            case ABS_MT_POSITION_X:
+                ts_x = ev.value;
+                ts_col = (ev.value - ts_x_min) / ((ts_x_max - ts_x_min) / tty_win.ws_col);
+                changed = true;
+                break;
+            case ABS_MT_POSITION_Y:
+                ts_y = ev.value;
+                ts_row = (ev.value - ts_y_min) / ((ts_y_max - ts_y_min) / tty_win.ws_row);
+                changed = true;
+                break;
+            default:
+                break;
+        }
+    }
+
+    return changed;
+}
+
 // Initialize UX for a tty CUI - open /dev/tty0 for text-mode GUI (CUI) and clear screen:
 int ux_init(void) {
     int retval;
@@ -166,12 +201,36 @@ int ux_init(void) {
     return 0;
 }
 
+void ansi_move_cursor(int row, int col) {
+    dprintf(tty_fd, ANSI_CSI "%d;%dH", row, col);
+}
+
+bool ux_poll(void) {
+    // Poll for touchscreen input:
+    bool changed = ts_poll();
+
+    // Register a redraw if touchscreen input changed:
+    if (changed) {
+        ux_notify_redraw();
+    }
+
+    return changed;
+}
+
+void ux_notify_redraw(void) {
+    ux_redraw = true;
+}
+
 // Draw UX screen:
 void ux_draw(void) {
-    int row;
+    u8 row;
+
+    // Only redraw if necessary:
+    if (!ux_redraw) return;
+    ux_redraw = false;
 
     // Move cursor to position to draw "LCD" text:
-    dprintf(tty_fd, ANSI_CSI "%d;%dH", tty_win.ws_row / 2 - LCD_ROWS / 2, tty_win.ws_col / 2 - LCD_COLS / 2);
+    ansi_move_cursor(tty_win.ws_row / 2 - LCD_ROWS / 2, tty_win.ws_col / 2 - LCD_COLS / 2);
     for (row = 0; row < LCD_ROWS; row++) {
         // Write LCD text row:
         write(tty_fd, lcd_row_get(row), LCD_COLS);
@@ -183,4 +242,7 @@ void ux_draw(void) {
     //printf("| ");
     //printf(" |\n");
     //printf("\\----------------------/");
+
+    // Move cursor to last touchscreen row,col:
+    ansi_move_cursor(ts_row + 1, ts_col + 1);
 }

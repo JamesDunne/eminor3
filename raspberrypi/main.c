@@ -78,5 +78,11 @@ int main(void) {
 
         // Run controller code:
         controller_handle();
+
+        // Poll for UX events:
+        ux_poll();
+
+        // Redraw the screen if needed:
+        ux_draw();
     }
 }

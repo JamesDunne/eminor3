@@ -18,7 +18,7 @@ char *lcd_row_get(u8 row) {
 
 // Update all LCD display rows as updated:
 void lcd_updated_all(void) {
-	ux_draw();
+	ux_notify_redraw();
 }
 
 #endif

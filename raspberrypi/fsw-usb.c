@@ -64,10 +64,7 @@ u16 fsw_poll(void) {
         printf("0x%04X 0x%04X 0x%08X\n", ev.type, ev.code, ev.value);
 #endif
 
-        // Ignore type=4 and type=0 events:
-        if (ev.type != 1) {
-            continue;
-        }
+        if (ev.type != EV_KEY) continue;
 
         switch (ev.code) {
             case 0x1E:
