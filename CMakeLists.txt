@@ -28,3 +28,13 @@ add_executable(eminor3
         raspberrypi/midi.c
         raspberrypi/midi.h
         raspberrypi/fsw-usb.c)
+
+find_program(SCP_EXECUTABLE scp)
+if(SCP_EXECUTABLE)
+    add_custom_target(delivery
+            COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
+            COMMAND ${SCP_EXECUTABLE} ${CMAKE_PROJECT_NAME}
+            pi:gopath/src/github.com/JamesDunne/eminor3/)
+else()
+    message(SEND_ERROR "Require scp for the delivery target")
+endif()
