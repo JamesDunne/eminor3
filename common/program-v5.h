@@ -23,10 +23,12 @@ struct amp {
     u8 volume;  // volume (7-bit) represented where 0 = -inf, 98 = 0dB, 127 = +6dB
 };
 
+#define PROGRAM_NAME_LEN 20
+
 // Program v5 data structure loaded from / written to flash memory:
 struct program {
     // Name of the song:
-    u8 name[20];
+    u8 name[PROGRAM_NAME_LEN];
 
     // AXE-FX program # to switch to (7 bit)
     u8 midi_program;

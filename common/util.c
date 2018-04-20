@@ -86,6 +86,8 @@ char *bcd(u16 n) {
 }
 #endif
 
+#ifdef FEAT_LCD
+
 // Copies a fixed-length string optionally NUL-terminated to the LCD display row:
 void copy_str_lcd(const char *src, char *dst) {
     u8 i;
@@ -96,6 +98,8 @@ void copy_str_lcd(const char *src, char *dst) {
         dst[i] = ' ';
     }
 }
+
+#endif
 
 // Comment-out unused functions so they don't take up code space on PIC.
 #if 0

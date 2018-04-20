@@ -11,7 +11,7 @@
 // Features enabled/disable:
 
 // Enable LCD display:
-#define FEAT_LCD
+//#define FEAT_LCD
 
 // Define a DEBUG_LOG0 macro:
 #ifdef __MCC18
@@ -161,7 +161,10 @@ struct report {
     } amp[2];
 };
 
-// Fill in a report structure with latest controller data:
-/* export */ extern void controller_report(struct report *r);
+// Ask the host for a writable report:
+extern struct report *report_target(void);
+
+// Notify the host that the report was updated:
+extern void report_notify(void);
 
 #endif

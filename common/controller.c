@@ -257,50 +257,63 @@ static void reset_scene(void);
 
 #ifdef HWFEAT_REPORT
 
+// Initialized in controller_init:
+struct report *report = NULL;
+
 // Fill in a report structure with latest controller data:
-void controller_report(struct report *r) {
+static void report_build(void) {
+    // Safety:
+    if (report == NULL) return;
+
     // Copy in program name:
     if (pr.name[0] == 0) {
         // Show unnamed song index:
-        for (int i = 0; i < LCD_COLS; i++) {
-            r->pr_name[i] = "__unnamed song #    "[i];
+        for (int i = 0; i < PROGRAM_NAME_LEN; i++) {
+            report->pr_name[i] = "__unnamed song #    "[i];
         }
-        ritoa(r->pr_name, 18, curr.pr_idx + (u8) 1);
+        ritoa(report->pr_name, 18, curr.pr_idx + (u8) 1);
     } else {
-        strncpy(r->pr_name, (const char *)pr.name, LCD_COLS);
+        strncpy(report->pr_name, (const char *) pr.name, PROGRAM_NAME_LEN);
     }
 
     // program modified:
-    r->is_modified = (curr.modified != 0);
+    report->is_modified = (curr.modified != 0);
 
     // setlist mode vs program mode:
-    r->is_setlist_mode = (curr.setlist_mode != 0);
+    report->is_setlist_mode = (curr.setlist_mode != 0);
 
-    r->pr_val = curr.pr_idx + 1u;
-    r->pr_max = 128;
-    r->sl_val = curr.sl_idx + 1u;
-    r->sl_max = sl_max + 1u;
-    r->sc_val = curr.sc_idx + 1u;
-    r->sc_max = pr.scene_count;
+    report->pr_val = curr.pr_idx + 1u;
+    report->pr_max = 128;
+    report->sl_val = curr.sl_idx + 1u;
+    report->sl_max = sl_max + 1u;
+    report->sc_val = curr.sc_idx + 1u;
+    report->sc_max = pr.scene_count;
 
+    // Copy amp settings:
     for (int i = 0; i < 2; i++) {
         // Set amp tone:
-        if ((curr.amp[i].fx & fxm_acoustc)) r->amp[i].tone = AMP_TONE_ACOUSTIC;
-        else if ((curr.amp[i].fx & fxm_dirty)) r->amp[i].tone = AMP_TONE_DIRTY;
-        else r->amp[i].tone = AMP_TONE_CLEAN;
+        if ((curr.amp[i].fx & fxm_acoustc))
+            report->amp[i].tone = AMP_TONE_ACOUSTIC;
+        else if ((curr.amp[i].fx & fxm_dirty))
+            report->amp[i].tone = AMP_TONE_DIRTY;
+        else
+            report->amp[i].tone = AMP_TONE_CLEAN;
 
-        r->amp[i].gain_dirty = curr.amp[i].gain;
+        report->amp[i].gain_dirty = curr.amp[i].gain;
         // TODO: gain_clean needs fixing controller code to be its own value
 
-        r->amp[i].volume = curr.amp[i].volume;
+        report->amp[i].volume = curr.amp[i].volume;
 
         // Copy FX settings:
         u8 test_fx = 1;
         for (int f = 0; f < FX_COUNT; f++, test_fx <<= 1) {
-            r->amp[i].fx_enabled[f] = (curr.amp[i].fx & test_fx) == test_fx;
-            r->amp[i].fx_midi_cc[f] = pr.fx_midi_cc[i][f];
+            report->amp[i].fx_enabled[f] = (curr.amp[i].fx & test_fx) == test_fx;
+            report->amp[i].fx_midi_cc[f] = pr.fx_midi_cc[i][f];
         }
     }
+
+    // Notify host that report is updated:
+    report_notify();
 }
 
 #endif
@@ -516,6 +529,10 @@ static void calc_midi(void) {
     // Update LCD if the state changed:
     if (diff) {
         update_lcd();
+
+#ifdef HWFEAT_REPORT
+        report_build();
+#endif
     }
 }
 
@@ -963,6 +980,11 @@ void controller_init(void) {
     u8 i;
 
     tap = 0;
+
+#ifdef HWFEAT_REPORT
+    // get writable report location:
+    report = report_target();
+#endif
 
     mode = MODE_LIVE;
 

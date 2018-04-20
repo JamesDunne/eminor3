@@ -48,6 +48,8 @@ int ts_y, ts_row;
 
 bool ux_redraw = true;
 
+struct report ux_report;
+
 // Resets tty0 to initial state on exit:
 void reset_input_mode(void) {
     tcsetattr(tty_fd, TCSANOW, &saved_attributes);
@@ -219,6 +221,16 @@ void ux_notify_redraw(void) {
     ux_redraw = true;
 }
 
+// Hand back the global variable location to write reports to:
+struct report *report_target(void) {
+    return &ux_report;
+}
+
+// When a new report is ready, redraw the UX:
+void report_notify(void) {
+    ux_notify_redraw();
+}
+
 #define LCD_ANSI_NEXT_ROW ANSI_CSI "B" ANSI_CSI STRING(LCD_COLS) "D"
 
 int ansi_move_cursor(char *buf, int row, int col) {
@@ -227,13 +239,27 @@ int ansi_move_cursor(char *buf, int row, int col) {
 
 // Draw UX screen:
 void ux_draw(void) {
-    u8 row;
-    char lcd[LCD_ROWS * (LCD_COLS + STRLEN(LCD_ANSI_NEXT_ROW)) + STRLEN(ANSI_CSI "99;99H") * 2 + 1] = "";
-    char *buf = lcd;
-
     // Only redraw if necessary:
     if (!ux_redraw) return;
     ux_redraw = false;
+
+#ifdef HWFEAT_REPORT
+    // Prefer report feature for rendering a UX:
+    char out[100] = "";
+    char *buf = out;
+
+    // TODO: show data in various places on screen
+
+    // Move cursor to last touchscreen row,col:
+    buf += ansi_move_cursor(buf, ts_row, ts_col);
+
+    // Send update to tty in one write call to reduce lag/tear:
+    write(tty_fd, out, buf - out);
+#else
+# ifdef FEAT_LCD
+    u8 row;
+    char lcd[LCD_ROWS * (LCD_COLS + STRLEN(LCD_ANSI_NEXT_ROW)) + STRLEN(ANSI_CSI "99;99H") * 2 + 1] = "";
+    char *buf = lcd;
 
     // Move cursor to position to draw "LCD" text:
     int tty_lcd_row_center = tty_win.ws_row / 2 - LCD_ROWS / 2;
@@ -253,4 +279,6 @@ void ux_draw(void) {
 
     // Send update to tty in one write call to reduce lag/tear:
     write(tty_fd, lcd, buf - lcd);
+# endif
+#endif
 }
