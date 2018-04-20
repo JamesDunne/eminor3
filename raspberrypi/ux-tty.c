@@ -17,11 +17,16 @@
 
 #define tty0 "/dev/tty0"
 
+#define ts_input "/dev/input/event1"
+#define ts_device_name "FT5406 memory based driver"
+
 #define ANSI_RIS "\033c"
 #define ANSI_CSI "\033["
 
 #define STRING_(s) #s
 #define STRING(s) STRING_(s)
+
+#define STRLEN(s) (sizeof(s) - 1)
 
 // TTY output:
 int tty_fd = -1;
@@ -30,8 +35,6 @@ struct winsize tty_win;
 struct termios saved_attributes;
 
 // Touchscreen input:
-#define ts_input "/dev/input/event1"
-#define ts_device_name "FT5406 memory based driver"
 int ts_fd = -1;
 
 int ts_x_min;
@@ -199,7 +202,7 @@ int ux_init(void) {
     return 0;
 }
 
-
+// Poll for UX inputs:
 bool ux_poll(void) {
     // Poll for touchscreen input:
     bool changed = ts_poll();
@@ -217,8 +220,6 @@ void ux_notify_redraw(void) {
 }
 
 #define LCD_ANSI_NEXT_ROW ANSI_CSI "B" ANSI_CSI STRING(LCD_COLS) "D"
-
-#define STRLEN(s) (sizeof(s) - 1)
 
 int ansi_move_cursor(char *buf, int row, int col) {
     return sprintf(buf, ANSI_CSI "%d;%dH", row + 1, col + 1);
