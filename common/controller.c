@@ -83,6 +83,7 @@ Press AMP to switch row to AMP mode
 
 */
 
+#include <string.h>
 #include "util.h"
 
 #include "program-v5.h"
@@ -188,8 +189,8 @@ struct state {
 
     // Each row's current state:
     struct {
-        enum rowstate_mode  mode;
-        u8                  fx;
+        enum rowstate_mode mode;
+        u8 fx;
     } rowstate[2];
 
     // Whether current program is modified in any way:
@@ -253,6 +254,56 @@ static void reset_scene(void);
     ((u8) -((s8)(enable)) >> (u8)1)
 
 #define or_default(a, b) (a == 0 ? b : a)
+
+#ifdef HWFEAT_REPORT
+
+// Fill in a report structure with latest controller data:
+void controller_report(struct report *r) {
+    // Copy in program name:
+    if (pr.name[0] == 0) {
+        // Show unnamed song index:
+        for (int i = 0; i < LCD_COLS; i++) {
+            r->pr_name[i] = "__unnamed song #    "[i];
+        }
+        ritoa(r->pr_name, 18, curr.pr_idx + (u8) 1);
+    } else {
+        strncpy(r->pr_name, (const char *)pr.name, LCD_COLS);
+    }
+
+    // program modified:
+    r->is_modified = (curr.modified != 0);
+
+    // setlist mode vs program mode:
+    r->is_setlist_mode = (curr.setlist_mode != 0);
+
+    r->pr_val = curr.pr_idx + 1u;
+    r->pr_max = 128;
+    r->sl_val = curr.sl_idx + 1u;
+    r->sl_max = sl_max + 1u;
+    r->sc_val = curr.sc_idx + 1u;
+    r->sc_max = pr.scene_count;
+
+    for (int i = 0; i < 2; i++) {
+        // Set amp tone:
+        if ((curr.amp[i].fx & fxm_acoustc)) r->amp[i].tone = AMP_TONE_ACOUSTIC;
+        else if ((curr.amp[i].fx & fxm_dirty)) r->amp[i].tone = AMP_TONE_DIRTY;
+        else r->amp[i].tone = AMP_TONE_CLEAN;
+
+        r->amp[i].gain_dirty = curr.amp[i].gain;
+        // TODO: gain_clean needs fixing controller code to be its own value
+
+        r->amp[i].volume = curr.amp[i].volume;
+
+        // Copy FX settings:
+        u8 test_fx = 1;
+        for (int f = 0; f < FX_COUNT; f++, test_fx <<= 1) {
+            r->amp[i].fx_enabled[f] = (curr.amp[i].fx & test_fx) == test_fx;
+            r->amp[i].fx_midi_cc[f] = pr.fx_midi_cc[i][f];
+        }
+    }
+}
+
+#endif
 
 // MIDI is sent at a fixed 3,125 bytes/sec transfer rate; 56 bytes takes 175ms to complete.
 // calculate the difference from last MIDI state to current MIDI state and send the difference as MIDI commands:
@@ -392,12 +443,14 @@ static void calc_midi(void) {
     // Send FX state:
     for (i = 0; i < 5; i++, test_fx <<= 1) {
         if ((curr.amp[0].fx & test_fx) != (last.amp[0].fx & test_fx)) {
-            DEBUG_LOG2("MIDI set AMP1 %.4s %s", fx_name(pr.fx_midi_cc[0][i]), (curr.amp[0].fx & test_fx) == 0 ? "off" : "on");
+            DEBUG_LOG2("MIDI set AMP1 %.4s %s", fx_name(pr.fx_midi_cc[0][i]),
+                       (curr.amp[0].fx & test_fx) == 0 ? "off" : "on");
             midi_axe_cc(pr.fx_midi_cc[0][i], calc_cc_toggle(curr.amp[0].fx & test_fx));
             diff = 1;
         }
         if ((curr.amp[1].fx & test_fx) != (last.amp[1].fx & test_fx)) {
-            DEBUG_LOG2("MIDI set AMP2 %.4s %s", fx_name(pr.fx_midi_cc[1][i]), (curr.amp[1].fx & test_fx) == 0 ? "off" : "on");
+            DEBUG_LOG2("MIDI set AMP2 %.4s %s", fx_name(pr.fx_midi_cc[1][i]),
+                       (curr.amp[1].fx & test_fx) == 0 ? "off" : "on");
             midi_axe_cc(pr.fx_midi_cc[1][i], calc_cc_toggle(curr.amp[1].fx & test_fx));
             diff = 1;
         }
@@ -412,7 +465,7 @@ static void calc_midi(void) {
         // F0 00 01 74 03 02 0D 01 20 00 0C 01 00 01 24 F7   = 140 BPM
 
         // Precompute a checksum that excludes only the 2 tempo bytes:
-        u8 cs = 0xF0 ^ 0x00 ^ 0x01 ^ 0x74 ^ 0x03 ^ 0x02 ^ 0x0D ^ 0x01 ^ 0x20 ^ 0x00 ^ 0x00 ^ 0x01;
+        u8 cs = 0xF0 ^0x00 ^0x01 ^0x74 ^0x03 ^0x02 ^0x0D ^0x01 ^0x20 ^0x00 ^0x00 ^0x01;
         u8 d;
 
         DEBUG_LOG1("MIDI set tempo = %d bpm", curr.tempo);
@@ -423,10 +476,10 @@ static void calc_midi(void) {
         midi_send_sysex(0x20);
         midi_send_sysex(0x00);
         // Tempo value split in 2x 7-bit values:
-        d = (curr.tempo & (u8)0x7F);
+        d = (curr.tempo & (u8) 0x7F);
         cs ^= d;
         midi_send_sysex(d);
-        d = (curr.tempo >> (u8)7);
+        d = (curr.tempo >> (u8) 7);
         cs ^= d;
         midi_send_sysex(d);
         //  Finish the tempo command and send the sysex checksum and terminator:
@@ -560,19 +613,19 @@ static void update_lcd(void) {
         }
 
         // Show program number:
-        ritoa(lcd_rows[row_stat], 5, curr.pr_idx + (u8)1);
+        ritoa(lcd_rows[row_stat], 5, curr.pr_idx + (u8) 1);
     } else {
         for (i = 0; i < LCD_COLS; i++) {
             lcd_rows[row_stat][i] = "Sng  0/ 0  Scn  0/ 0"[i];
         }
 
         // Show setlist song index:
-        ritoa(lcd_rows[row_stat], 5, curr.sl_idx + (u8)1);
+        ritoa(lcd_rows[row_stat], 5, curr.sl_idx + (u8) 1);
         // Show setlist song count:
-        ritoa(lcd_rows[row_stat], 8, sl_max + (u8)1);
+        ritoa(lcd_rows[row_stat], 8, sl_max + (u8) 1);
     }
     // Scene number:
-    ritoa(lcd_rows[row_stat], 16, curr.sc_idx + (u8)1);
+    ritoa(lcd_rows[row_stat], 16, curr.sc_idx + (u8) 1);
     // Scene count:
     ritoa(lcd_rows[row_stat], 19, pr.scene_count);
 
@@ -582,7 +635,7 @@ static void update_lcd(void) {
         for (i = 0; i < LCD_COLS; i++) {
             lcd_rows[row_song][i] = "__unnamed song #    "[i];
         }
-        ritoa(lcd_rows[row_song], 18, curr.pr_idx + (u8)1);
+        ritoa(lcd_rows[row_song], 18, curr.pr_idx + (u8) 1);
     } else {
         copy_str_lcd(pr.name, lcd_rows[row_song]);
     }
@@ -698,7 +751,7 @@ static void update_lcd(void) {
             }
             break;
     }
-    
+
     lcd_updated_all();
 #endif
 }
@@ -725,9 +778,9 @@ static void calc_volume_modified(void) {
 }
 
 rom struct program *program_addr(u8 pr) {
-    u16 addr = (u16)sizeof(struct set_list) + (u16)(pr * sizeof(struct program));
+    u16 addr = (u16) sizeof(struct set_list) + (u16) (pr * sizeof(struct program));
 
-    return (rom struct program *)flash_addr(addr);
+    return (rom struct program *) flash_addr(addr);
 }
 
 void load_program(void) {
@@ -743,10 +796,10 @@ void load_program(void) {
 
     DEBUG_LOG1("load program %d", pr_num + 1);
 
-    addr = (u16)sizeof(struct set_list) + (u16)(pr_num * sizeof(struct program));
+    addr = (u16) sizeof(struct set_list) + (u16) (pr_num * sizeof(struct program));
     flash_load(addr, sizeof(struct program), (u8 *) &pr);
 
-    origpr = (rom struct program *)flash_addr(addr);
+    origpr = (rom struct program *) flash_addr(addr);
     curr.modified = 0;
     curr.midi_program = pr.midi_program;
     curr.tempo = pr.tempo;
@@ -772,7 +825,7 @@ void load_scene(void) {
         (pr.scene[curr.sc_idx].amp[1].gain == 0) && (pr.scene[curr.sc_idx].amp[1].volume == 0)) {
         // Reset to default scene state:
         //scene_default();
-        pr.scene[curr.sc_idx] = pr.scene[curr.sc_idx-1];
+        pr.scene[curr.sc_idx] = pr.scene[curr.sc_idx - 1];
     }
 
     // Copy new scene settings into current state:
@@ -810,11 +863,11 @@ void scene_default(void) {
 
 static void toggle_setlist_mode() {
     DEBUG_LOG0("change setlist mode");
-    curr.setlist_mode ^= (u8)1;
+    curr.setlist_mode ^= (u8) 1;
     if (curr.setlist_mode == 1) {
         // Remap sl_idx by looking up program in setlist otherwise default to first setlist entry:
         u8 i;
-        sl_max = sl.count - (u8)1;
+        sl_max = sl.count - (u8) 1;
         curr.sl_idx = 0;
         for (i = 0; i < sl.count; i++) {
             if (sl.entries[i].program == curr.pr_idx) {
@@ -830,7 +883,7 @@ static void toggle_setlist_mode() {
 }
 
 static void tap_tempo() {
-    tap ^= (u8)0x7F;
+    tap ^= (u8) 0x7F;
     midi_axe_cc(axe_cc_taptempo, tap);
 }
 
@@ -917,12 +970,12 @@ void controller_init(void) {
     curr.setlist_mode = 1;
 
     // Load setlist:
-    flash_load((u16)0, sizeof(struct set_list), (u8 *)&sl);
-    sl_max = sl.count - (u8)1;
+    flash_load((u16) 0, sizeof(struct set_list), (u8 *) &sl);
+    sl_max = sl.count - (u8) 1;
 
     for (i = 0; i < 2; i++) {
         curr.amp[i].gain = 0;
-        last.amp[i].gain = ~(u8)0;
+        last.amp[i].gain = ~(u8) 0;
         last_amp[i].clean_gain = 0x10;
     }
 
@@ -939,9 +992,9 @@ void controller_init(void) {
 
     for (i = 0; i < 2; i++) {
         curr.rowstate[i].mode = ROWMODE_AMP;
-        curr.rowstate[i].fx = (u8)0;
+        curr.rowstate[i].fx = (u8) 0;
         last.rowstate[i].mode = ~ROWMODE_AMP;
-        last.rowstate[i].fx = ~(u8)0;
+        last.rowstate[i].fx = ~(u8) 0;
 
         // Copy current scene settings into state:
         curr.amp[i] = pr.scene[curr.sc_idx].amp[i];
