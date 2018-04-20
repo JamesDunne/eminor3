@@ -16,7 +16,6 @@
 
 #include "types.h"
 #include "hardware.h"
-#include "i2c.h"
 #include "midi.h"
 #include "fsw.h"
 #include "leds.h"
