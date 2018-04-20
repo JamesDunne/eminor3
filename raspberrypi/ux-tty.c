@@ -33,6 +33,12 @@ struct termios saved_attributes;
 #define ts_device_name "FT5406 memory based driver"
 int ts_fd = -1;
 
+int ts_x_min;
+int ts_x_max;
+
+int ts_y_min;
+int ts_y_max;
+
 // Resets tty0 to initial state on exit:
 void reset_input_mode(void) {
     tcsetattr(tty_fd, TCSANOW, &saved_attributes);
@@ -71,7 +77,7 @@ int tty_init(void) {
     }
 
     // ws_xpixel, ws_ypixel are 0, 0
-    printf("%d, %d\n", tty_win.ws_col, tty_win.ws_row);
+    printf("TTY cols = %d, rows = %d\n", tty_win.ws_col, tty_win.ws_row);
 
     // Disable echo on tty0:
     ux_settty();
@@ -89,105 +95,12 @@ int tty_init(void) {
 #define LONG(x) ((x)/BITS_PER_LONG)
 #define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
 
-#define NAME_ELEMENT(element) [element] = #element
-
-static const char *const absval[6] = {"Value", "Min  ", "Max  ", "Fuzz ", "Flat ", "Resolution "};
-
-static const char *const absolutes[ABS_MAX + 1] = {
-        [0 ... ABS_MAX] = NULL,
-        NAME_ELEMENT(ABS_X), NAME_ELEMENT(ABS_Y),
-        NAME_ELEMENT(ABS_Z), NAME_ELEMENT(ABS_RX),
-        NAME_ELEMENT(ABS_RY), NAME_ELEMENT(ABS_RZ),
-        NAME_ELEMENT(ABS_THROTTLE), NAME_ELEMENT(ABS_RUDDER),
-        NAME_ELEMENT(ABS_WHEEL), NAME_ELEMENT(ABS_GAS),
-        NAME_ELEMENT(ABS_BRAKE), NAME_ELEMENT(ABS_HAT0X),
-        NAME_ELEMENT(ABS_HAT0Y), NAME_ELEMENT(ABS_HAT1X),
-        NAME_ELEMENT(ABS_HAT1Y), NAME_ELEMENT(ABS_HAT2X),
-        NAME_ELEMENT(ABS_HAT2Y), NAME_ELEMENT(ABS_HAT3X),
-        NAME_ELEMENT(ABS_HAT3Y), NAME_ELEMENT(ABS_PRESSURE),
-        NAME_ELEMENT(ABS_DISTANCE), NAME_ELEMENT(ABS_TILT_X),
-        NAME_ELEMENT(ABS_TILT_Y), NAME_ELEMENT(ABS_TOOL_WIDTH),
-        NAME_ELEMENT(ABS_VOLUME), NAME_ELEMENT(ABS_MISC),
-#ifdef ABS_MT_BLOB_ID
-NAME_ELEMENT(ABS_MT_TOUCH_MAJOR),
-    NAME_ELEMENT(ABS_MT_TOUCH_MINOR),
-    NAME_ELEMENT(ABS_MT_WIDTH_MAJOR),
-    NAME_ELEMENT(ABS_MT_WIDTH_MINOR),
-    NAME_ELEMENT(ABS_MT_ORIENTATION),
-    NAME_ELEMENT(ABS_MT_POSITION_X),
-    NAME_ELEMENT(ABS_MT_POSITION_Y),
-    NAME_ELEMENT(ABS_MT_TOOL_TYPE),
-    NAME_ELEMENT(ABS_MT_BLOB_ID),
-#endif
-#ifdef ABS_MT_TRACKING_ID
-        NAME_ELEMENT(ABS_MT_TRACKING_ID),
-#endif
-#ifdef ABS_MT_PRESSURE
-        NAME_ELEMENT(ABS_MT_PRESSURE),
-#endif
-#ifdef ABS_MT_SLOT
-        NAME_ELEMENT(ABS_MT_SLOT),
-#endif
-#ifdef ABS_MT_TOOL_X
-NAME_ELEMENT(ABS_MT_TOOL_X),
-    NAME_ELEMENT(ABS_MT_TOOL_Y),
-    NAME_ELEMENT(ABS_MT_DISTANCE),
-#endif
-};
-
-static const char *const *const names[EV_MAX + 1] = {
-        [0 ... EV_MAX] = NULL,
-        [EV_ABS] = absolutes,
-};
-
-static const char *const events[EV_MAX + 1] = {
-        [0 ... EV_MAX] = NULL,
-        NAME_ELEMENT(EV_SYN), NAME_ELEMENT(EV_KEY),
-        NAME_ELEMENT(EV_REL), NAME_ELEMENT(EV_ABS),
-        NAME_ELEMENT(EV_MSC), NAME_ELEMENT(EV_LED),
-        NAME_ELEMENT(EV_SND), NAME_ELEMENT(EV_REP),
-        NAME_ELEMENT(EV_FF), NAME_ELEMENT(EV_PWR),
-        NAME_ELEMENT(EV_FF_STATUS), NAME_ELEMENT(EV_SW),
-};
-
-static const int maxval[EV_MAX + 1] = {
-        [0 ... EV_MAX] = -1,
-        [EV_SYN] = SYN_MAX,
-        [EV_KEY] = KEY_MAX,
-        [EV_REL] = REL_MAX,
-        [EV_ABS] = ABS_MAX,
-        [EV_MSC] = MSC_MAX,
-        [EV_SW] = SW_MAX,
-        [EV_LED] = LED_MAX,
-        [EV_SND] = SND_MAX,
-        [EV_REP] = REP_MAX,
-        [EV_FF] = FF_MAX,
-        [EV_FF_STATUS] = FF_STATUS_MAX,
-};
-
-static void print_absdata(int fd, int axis) {
-    int abs[6] = {0};
-    int k;
-
-    ioctl(fd, EVIOCGABS(axis), abs);
-    for (k = 0; k < 6; k++)
-        if ((k < 3) || abs[k])
-            printf("      %s %6d\n", absval[k], abs[k]);
-}
-
-static inline const char *typename(unsigned int type) {
-    return (type <= EV_MAX && events[type]) ? events[type] : "?";
-}
-
-static inline const char *codename(unsigned int type, unsigned int code) {
-    return (type <= EV_MAX && code <= maxval[type] && names[type] && names[type][code]) ? names[type][code] : "?";
-}
-
 // Initialize touchscreen input:
 int ts_init(void) {
     char name[256] = "Unknown";
     unsigned long bit[EV_MAX][NBITS(KEY_MAX)];
     unsigned int type, code;
+    int abs[6] = {0};
 
     // Open touchscreen device:
     // TODO: might not always be event1
@@ -202,7 +115,7 @@ int ts_init(void) {
 
     // Verify our expectations:
     if (strncmp(ts_device_name, name, 256) != 0) {
-        printf("Device name does not match expected: \"" ts_device_name "\"");
+        printf("TS device name does not match expected: \"" ts_device_name "\"");
         return 9;
     }
 
@@ -210,21 +123,30 @@ int ts_init(void) {
     memset(bit, 0, sizeof(bit));
     ioctl(ts_fd, EVIOCGBIT(0, EV_MAX), bit[0]);
 
-    for (type = 0; type < EV_MAX; type++) {
-        if (test_bit(type, bit[0]) && type != EV_REP) {
-            printf("  Event type %d (%s)\n", type, typename(type));
-            if (type == EV_SYN) continue;
-
-            ioctl(ts_fd, EVIOCGBIT(type, KEY_MAX), bit[type]);
-            for (code = 0; code < KEY_MAX; code++)
-                if (test_bit(code, bit[type])) {
-                    printf("    Event code %d (%s)\n", code, codename(type, code));
-                    if (type == EV_ABS)
-                        print_absdata(ts_fd, code);
-                }
-        }
+    if (!test_bit(EV_ABS, bit[0])) {
+        printf("TS device does not support EV_ABS events!\n");
+        return 10;
     }
 
+    // Fetch EV_ABS bits:
+    ioctl(ts_fd, EVIOCGBIT(EV_ABS, KEY_MAX), bit[EV_ABS]);
+
+    // Read X,Y bounds:
+    if (!test_bit(ABS_MT_POSITION_X, bit[EV_ABS])) {
+        printf("TS device does not support ABS_MT_POSITION_X!\n");
+    }
+    ioctl(ts_fd, EVIOCGABS(ABS_MT_POSITION_X), abs);
+    ts_x_min = abs[1];
+    ts_x_max = abs[2];
+
+    if (!test_bit(ABS_MT_POSITION_Y, bit[EV_ABS])) {
+        printf("TS device does not support ABS_MT_POSITION_Y!\n");
+    }
+    ioctl(ts_fd, EVIOCGABS(ABS_MT_POSITION_Y), abs);
+    ts_y_min = abs[1];
+    ts_y_max = abs[2];
+
+    printf("TS bounds: X: [%d, %d]; Y: [%d, %d]\n", ts_x_min, ts_x_max, ts_y_min, ts_y_max);
 
     return 0;
 }
