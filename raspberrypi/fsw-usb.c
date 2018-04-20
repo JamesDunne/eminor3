@@ -35,8 +35,8 @@ int fsw_init(void) {
 #if 0
     printf("rep = {%d, %d}\n", rep[0], rep[1]);
 #endif
-    rep[0] = 500;
-    rep[1] = 50;
+    rep[0] = 750;
+    rep[1] = 100;
 
     // Set repeat rate:
     if (ioctl(fsw_fd, EVIOCSREP, rep) < 0) {
