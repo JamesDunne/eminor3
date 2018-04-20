@@ -100,7 +100,7 @@ u16 fsw_poll(void) {
                     fsw_state |= (M_3);
                 } else if (ev.value == 2) {
                     // auto-repeat:
-                    fsw_state |= (M_2 << 8u);
+                    fsw_state |= (M_3 << 8u);
                 }
                 break;
             default:
