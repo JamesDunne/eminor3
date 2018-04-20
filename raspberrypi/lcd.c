@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "hardware.h"
+#include "ux.h"
 
 #ifdef FEAT_LCD
 
@@ -17,21 +18,7 @@ char *lcd_row_get(u8 row) {
 
 // Update all LCD display rows as updated:
 void lcd_updated_all(void) {
-	int j, i;
-
-	// TODO: Use SPI bus to communicate with LCD.
-
-	printf("\n/----------------------\\\n");
-	for (j = 0; j < LCD_ROWS; j++) {
-		printf("| ");
-		for (i = 0; i < LCD_COLS; i++) {
-			char c = lcd_ascii[j][i];
-			if (c < 32) c = 32;
-			printf("%c", c);
-		}
-		printf(" |\n");
-	}
-	printf("\\----------------------/\n");
+	ux_draw();
 }
 
 #endif
