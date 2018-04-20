@@ -268,12 +268,12 @@ static void report_build(void) {
     // Copy in program name:
     if (pr.name[0] == 0) {
         // Show unnamed song index:
-        for (int i = 0; i < PROGRAM_NAME_LEN; i++) {
+        for (int i = 0; i < REPORT_PR_NAME_LEN; i++) {
             report->pr_name[i] = "__unnamed song #    "[i];
         }
         ritoa(report->pr_name, 18, curr.pr_idx + (u8) 1);
     } else {
-        strncpy(report->pr_name, (const char *) pr.name, PROGRAM_NAME_LEN);
+        strncpy(report->pr_name, (const char *) pr.name, REPORT_PR_NAME_LEN);
     }
 
     // program modified:
