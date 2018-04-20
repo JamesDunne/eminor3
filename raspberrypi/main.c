@@ -20,6 +20,7 @@
 #include "midi.h"
 #include "fsw.h"
 #include "leds.h"
+#include "ux.h"
 
 // Hardware interface from controller:
 void debug_log(const char *fmt, ...) {
@@ -43,22 +44,26 @@ void debug_log(const char *fmt, ...) {
 // Main function:
 int main(void) {
     int retval;
+    int tty_fd;
+    struct winsize win;
     struct timespec t;
+
     t.tv_sec  = 0;
     t.tv_nsec = 10L * 1000000L;  // 10 ms
 
-    // Open UART0 for MIDI write:
     if ((retval = midi_init())) {
         return retval;
     }
 
-    // Init SX1509 for reading FSWs (buttons):
     if ((retval = fsw_init())) {
         return retval;
     }
 
-    // Init SX1509 for outputting LEDs:
     if ((retval = led_init())) {
+        return retval;
+    }
+
+    if ((retval = ux_init())) {
         return retval;
     }
 

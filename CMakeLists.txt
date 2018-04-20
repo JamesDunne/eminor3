@@ -19,15 +19,16 @@ add_executable(eminor3
         common/util.h
         common/v5_bcd_lookup.h
         common/v5_fx_names.h
-        raspberrypi/flash.c
+        raspberrypi/ux.h
         raspberrypi/fsw.h
-        raspberrypi/i2c.h
-        raspberrypi/lcd.c
         raspberrypi/leds.h
+        raspberrypi/midi.h
+        raspberrypi/flash.c
+        raspberrypi/lcd.c
         raspberrypi/main.c
         raspberrypi/midi.c
-        raspberrypi/midi.h
-        raspberrypi/fsw-usb.c)
+        raspberrypi/fsw-usb.c
+        raspberrypi/ux-tty.c)
 
 find_program(SCP_EXECUTABLE scp)
 if(SCP_EXECUTABLE)
