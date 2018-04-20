@@ -27,22 +27,25 @@ struct termios saved_attributes;
 
 // Resets tty0 to initial state on exit:
 void reset_input_mode(void) {
-    tcsetattr (tty_fd, TCSANOW, &saved_attributes);
+    tcsetattr(tty_fd, TCSANOW, &saved_attributes);
+
+    // Clear screen:
+    write(tty_fd, ANSI_RIS, 2);
 }
 
 void ux_settty(void) {
     struct termios tattr;
 
     // Save current state of tty0 and restore it at exit:
-    tcgetattr (tty_fd, &saved_attributes);
-    atexit (reset_input_mode);
+    tcgetattr(tty_fd, &saved_attributes);
+    atexit(reset_input_mode);
 
     // Disable local echo:
-    tcgetattr (tty_fd, &tattr);
-    tattr.c_lflag &= ~(ICANON | ECHO);	/* Clear ICANON and ECHO. */
+    tcgetattr(tty_fd, &tattr);
+    tattr.c_lflag &= ~(ICANON | ECHO);
     tattr.c_cc[VMIN] = 1;
     tattr.c_cc[VTIME] = 0;
-    tcsetattr (tty_fd, TCSAFLUSH, &tattr);
+    tcsetattr(tty_fd, TCSAFLUSH, &tattr);
 }
 
 // Initialize UX for a tty CUI - open /dev/tty0 for text-mode GUI (CUI) and clear screen:
@@ -62,6 +65,7 @@ int ux_init(void) {
     // ws_xpixel, ws_ypixel are 0, 0
     printf("%d, %d\n", tty_win.ws_col, tty_win.ws_row);
 
+    // Disable echo on tty0:
     ux_settty();
 
     // Clear screen:
