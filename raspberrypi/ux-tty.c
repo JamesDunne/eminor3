@@ -30,8 +30,6 @@ struct winsize tty_win;
 struct termios saved_attributes;
 
 // Touchscreen input:
-void ansi_move_cursor(int row, int col);
-
 #define ts_input "/dev/input/event1"
 #define ts_device_name "FT5406 memory based driver"
 int ts_fd = -1;
@@ -201,9 +199,6 @@ int ux_init(void) {
     return 0;
 }
 
-void ansi_move_cursor(int row, int col) {
-    dprintf(tty_fd, ANSI_CSI "%d;%dH", row, col);
-}
 
 bool ux_poll(void) {
     // Poll for touchscreen input:
@@ -221,28 +216,40 @@ void ux_notify_redraw(void) {
     ux_redraw = true;
 }
 
+#define LCD_ANSI_NEXT_ROW ANSI_CSI "B" ANSI_CSI STRING(LCD_COLS) "D"
+
+#define STRLEN(s) (sizeof(s) - 1)
+
+int ansi_move_cursor(char *buf, int row, int col) {
+    return sprintf(buf, ANSI_CSI "%d;%dH", row + 1, col + 1);
+}
+
 // Draw UX screen:
 void ux_draw(void) {
     u8 row;
+    char lcd[LCD_ROWS * (LCD_COLS + STRLEN(LCD_ANSI_NEXT_ROW)) + STRLEN(ANSI_CSI "99;99H") * 2 + 1] = "";
+    char *buf = lcd;
 
     // Only redraw if necessary:
     if (!ux_redraw) return;
     ux_redraw = false;
 
     // Move cursor to position to draw "LCD" text:
-    ansi_move_cursor(tty_win.ws_row / 2 - LCD_ROWS / 2, tty_win.ws_col / 2 - LCD_COLS / 2);
+    int tty_lcd_row_center = tty_win.ws_row / 2 - LCD_ROWS / 2;
+    int tty_lcd_col_center = tty_win.ws_col / 2 - LCD_COLS / 2;
+    buf += ansi_move_cursor(buf, tty_lcd_row_center, tty_lcd_col_center);
     for (row = 0; row < LCD_ROWS; row++) {
         // Write LCD text row:
-        write(tty_fd, lcd_row_get(row), LCD_COLS);
+        strncat(buf, lcd_row_get(row), LCD_COLS);
+        buf += LCD_COLS;
         // Move back LCD_COLS columns and down one row
-        dprintf(tty_fd, ANSI_CSI "B" ANSI_CSI STRING(LCD_COLS) "D");
+        strcat(buf, LCD_ANSI_NEXT_ROW);
+        buf += STRLEN(LCD_ANSI_NEXT_ROW);
     }
 
-    //printf("/----------------------\\");
-    //printf("| ");
-    //printf(" |\n");
-    //printf("\\----------------------/");
-
     // Move cursor to last touchscreen row,col:
-    ansi_move_cursor(ts_row + 1, ts_col + 1);
+    buf += ansi_move_cursor(buf, ts_row, ts_col);
+
+    // Send update to tty in one write call to reduce lag/tear:
+    write(tty_fd, lcd, buf - lcd);
 }
