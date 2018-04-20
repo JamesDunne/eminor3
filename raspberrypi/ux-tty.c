@@ -43,6 +43,7 @@ int ts_x_max;
 int ts_y_min;
 int ts_y_max;
 
+bool ts_pressed = false;
 int ts_x, ts_col;
 int ts_y, ts_row;
 
@@ -181,10 +182,20 @@ bool ts_poll(void) {
                 ts_row = (ev.value - ts_y_min) / ((ts_y_max - ts_y_min) / tty_win.ws_row);
                 changed = true;
                 break;
+            case ABS_MT_TRACKING_ID:
+                ts_pressed = (ev.value != -1);
+                changed = true;
+                break;
             default:
                 break;
         }
     }
+
+#if 1
+    if (changed) {
+        printf("TS (%d, %d)\n", ts_row, ts_col);
+    }
+#endif
 
     return changed;
 }
@@ -237,6 +248,14 @@ int ansi_move_cursor(char *buf, int row, int col) {
     return sprintf(buf, ANSI_CSI "%d;%dH", row + 1, col + 1);
 }
 
+int ansi_move_cursor_row(char *buf, int row) {
+    return sprintf(buf, ANSI_CSI "%dd", row + 1);
+}
+
+int ansi_move_cursor_col(char *buf, int col) {
+    return sprintf(buf, ANSI_CSI "%dG", col + 1);
+}
+
 // Draw UX screen:
 void ux_draw(void) {
     // Only redraw if necessary:
@@ -248,7 +267,34 @@ void ux_draw(void) {
     char out[100] = "";
     char *buf = out;
 
-    // TODO: show data in various places on screen
+    // Show program name at top as a drop-down menu:
+    buf += ansi_move_cursor(buf, 1, 0);
+    buf += sprintf(
+            buf,
+            "Song: [%c%-*s ]",
+            ux_report.is_modified ? '*' : ' ',
+            REPORT_PR_NAME_LEN,
+            ux_report.pr_name
+    );
+
+    buf += ansi_move_cursor_col(buf, 31);
+    buf += sprintf(buf, "(%s)", ux_report.is_setlist_mode ? "SETLIST" : "PROGRAM");
+    buf += ansi_move_cursor_col(buf, 41);
+    if (ux_report.is_setlist_mode) {
+        buf += sprintf(buf, "[%3d]/%3d", ux_report.sl_val, ux_report.sl_max);
+    } else {
+        buf += sprintf(buf, "[%3d]/%3d", ux_report.pr_val, ux_report.pr_max);
+    }
+
+    buf += ansi_move_cursor(buf, 0, 41);
+    buf += sprintf(buf, "[ + ]");
+    buf += ansi_move_cursor(buf, 2, 41);
+    buf += sprintf(buf, "[ - ]");
+
+    // TODO: send actions to controller
+    if (ts_row == 0 && ts_col >= 41 && ts_col <= 45) {
+        //next_song();
+    }
 
     // Move cursor to last touchscreen row,col:
     buf += ansi_move_cursor(buf, ts_row, ts_col);
