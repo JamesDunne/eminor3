@@ -229,31 +229,31 @@ extern rom const u16 dB_bcd_lookup[128];
 
 // ------------------------- Actual controller logic -------------------------
 
-static void update_lcd(void);
+void prev_scene(void);
 
-//static void prev_scene(void);
+void next_scene(void);
 
-static void next_scene(void);
+void reset_scene(void);
 
-static void prev_song(void);
+void prev_song(void);
 
-static void next_song(void);
+void next_song(void);
 
-static void midi_invalidate(void);
+void midi_invalidate(void);
 
-static void toggle_setlist_mode(void);
+void toggle_setlist_mode(void);
 
-static void tap_tempo(void);
+void tap_tempo(void);
 
 static void scene_default(void);
-
-static void reset_scene(void);
 
 // (enable == 0 ? (u8)0 : (u8)0x7F)
 #define calc_cc_toggle(enable) \
     ((u8) -((s8)(enable)) >> (u8)1)
 
 #define or_default(a, b) (a == 0 ? b : a)
+
+static void update_lcd(void);
 
 #ifdef HWFEAT_REPORT
 
@@ -856,6 +856,33 @@ void load_scene(void) {
     calc_gain_modified();
 }
 
+void activate_program(int pr_idx) {
+    curr.pr_idx = (u8)pr_idx;
+    load_program();
+    load_scene();
+}
+
+void activate_song(int sl_idx) {
+    curr.sl_idx = (u8)sl_idx;
+    load_program();
+    load_scene();
+}
+
+void get_program_name(int pr_idx, char *name) {
+    struct program tmp;
+
+    u16 addr = (u16) sizeof(struct set_list) + (u16) (pr_idx * sizeof(struct program));
+    flash_load(addr, sizeof(struct program), (u8 *) &tmp);
+
+    strncpy(name, (const char *)tmp.name, 20);
+}
+
+int get_set_list_program(int sl_idx) {
+    if (sl_idx < 0 || sl_idx >= sl.count) return -1;
+
+    return sl.entries[sl_idx].program;
+}
+
 void scene_default(void) {
     rom struct program *default_pr = program_addr(0);
     u8 a, i;
@@ -878,7 +905,7 @@ void scene_default(void) {
     pr.scene[curr.sc_idx].amp[1].volume = volume_0dB;
 }
 
-static void toggle_setlist_mode() {
+void toggle_setlist_mode() {
     DEBUG_LOG0("change setlist mode");
     curr.setlist_mode ^= (u8) 1;
     if (curr.setlist_mode == 1) {
@@ -899,12 +926,12 @@ static void toggle_setlist_mode() {
     }
 }
 
-static void tap_tempo() {
+void tap_tempo() {
     tap ^= (u8) 0x7F;
     midi_axe_cc(axe_cc_taptempo, tap);
 }
 
-static void midi_invalidate() {
+void midi_invalidate() {
     // Invalidate all current MIDI state so it gets re-sent at end of loop:
     DEBUG_LOG0("invalidate MIDI state");
     last.midi_program = ~curr.midi_program;
@@ -926,7 +953,7 @@ static void midi_invalidate() {
     last_amp[1].gate = 0x40;
 }
 
-static void next_song() {
+void next_song() {
     if (curr.setlist_mode == 0) {
         if (curr.pr_idx < 127) {
             DEBUG_LOG0("next program");
@@ -940,7 +967,7 @@ static void next_song() {
     }
 }
 
-static void prev_song() {
+void prev_song() {
     if (curr.setlist_mode == 0) {
         if (curr.pr_idx > 0) {
             DEBUG_LOG0("prev program");
@@ -954,14 +981,14 @@ static void prev_song() {
     }
 }
 
-static void prev_scene() {
+void prev_scene() {
     if (curr.sc_idx > 0) {
         DEBUG_LOG0("prev scene");
         curr.sc_idx--;
     }
 }
 
-static void next_scene() {
+void next_scene() {
     if (curr.sc_idx < pr.scene_count - 1) {
         DEBUG_LOG0("next scene");
         curr.sc_idx++;
@@ -970,7 +997,7 @@ static void next_scene() {
     }
 }
 
-static void reset_scene() {
+void reset_scene() {
     DEBUG_LOG0("reset scene");
     curr.sc_idx = 0;
 }

@@ -43,13 +43,15 @@ int ts_x_max;
 int ts_y_min;
 int ts_y_max;
 
-bool ts_pressed = false;
+bool ts_touching = false;
+bool ts_released = false;
 int ts_x, ts_col;
 int ts_y, ts_row;
 
 bool ux_redraw = true;
 
 struct report ux_report;
+
 
 // Resets tty0 to initial state on exit:
 void reset_input_mode(void) {
@@ -183,7 +185,7 @@ bool ts_poll(void) {
                 changed = true;
                 break;
             case ABS_MT_TRACKING_ID:
-                ts_pressed = (ev.value != -1);
+                ts_touching = (ev.value != -1);
                 changed = true;
                 break;
             default:
@@ -256,6 +258,10 @@ int ansi_move_cursor_col(char *buf, int col) {
     return sprintf(buf, ANSI_CSI "%dG", col + 1);
 }
 
+int ansi_clear_screen(char *buf) {
+    return sprintf(buf, ANSI_RIS);
+}
+
 // Draw UX screen:
 void ux_draw(void) {
     // Only redraw if necessary:
@@ -264,36 +270,68 @@ void ux_draw(void) {
 
 #ifdef HWFEAT_REPORT
     // Prefer report feature for rendering a UX:
-    char out[100] = "";
+    char out[1000] = "";
     char *buf = out;
 
-    // Show program name at top as a drop-down menu:
-    buf += ansi_move_cursor(buf, 1, 0);
-    buf += sprintf(
-            buf,
-            "Song: [%c%-*s ]",
-            ux_report.is_modified ? '*' : ' ',
-            REPORT_PR_NAME_LEN,
-            ux_report.pr_name
-    );
+    static bool last_ts_touching = false;
+    static bool song_drop_down = false;
 
-    buf += ansi_move_cursor_col(buf, 31);
-    buf += sprintf(buf, "(%s)", ux_report.is_setlist_mode ? "SETLIST" : "PROGRAM");
-    buf += ansi_move_cursor_col(buf, 41);
-    if (ux_report.is_setlist_mode) {
-        buf += sprintf(buf, "[%3d]/%3d", ux_report.sl_val, ux_report.sl_max);
+    bool ts_pressed = !last_ts_touching && ts_touching;
+
+    // Show program name at top as a drop-down menu:
+    // Tap to drop-down song list:
+    if (!song_drop_down) {
+        if (ts_pressed && (ts_row == 0) && (ts_col >= 6 && ts_col <= 29)) {
+            // Show the drop-down:
+            song_drop_down = true;
+        }
     } else {
-        buf += sprintf(buf, "[%3d]/%3d", ux_report.pr_val, ux_report.pr_max);
+        if (ts_pressed && (ts_row >= 0 && ts_row <= 10) && (ts_col >= 6 && ts_col <= 29)) {
+            // Close the drop-down:
+            song_drop_down = false;
+            buf += ansi_clear_screen(buf);
+        }
     }
 
-    buf += ansi_move_cursor(buf, 0, 41);
-    buf += sprintf(buf, "[ + ]");
-    buf += ansi_move_cursor(buf, 2, 41);
-    buf += sprintf(buf, "[ - ]");
+    if (!song_drop_down) {
+        buf += ansi_move_cursor(buf, 0, 0);
+        buf += sprintf(
+                buf,
+                "Song: [%c%-*s ]",
+                ux_report.is_modified ? '*' : ' ',
+                REPORT_PR_NAME_LEN,
+                ux_report.pr_name
+        );
+    } else if (song_drop_down) {
+        // Render drop-down:
+        for (int i = 0; i < 10; i++) {
+            int pr;
+            char name[REPORT_PR_NAME_LEN];
+            if (ux_report.is_setlist_mode) {
+                pr = get_set_list_program(i);
+            } else {
+                pr = i;
+            }
+            get_program_name(pr, name);
 
-    // TODO: send actions to controller
-    if (ts_row == 0 && ts_col >= 41 && ts_col <= 45) {
-        //next_song();
+            buf += ansi_move_cursor(buf, 0 + i, 6);
+            buf += sprintf(buf, "| %-*s |", REPORT_PR_NAME_LEN, name);
+        }
+    }
+
+    buf += ansi_move_cursor(buf, 0, 31);
+    buf += sprintf(buf, "(%s)", ux_report.is_setlist_mode ? "SETLIST" : "PROGRAM");
+
+    // Toggle setlist/program mode on first press:
+    if (ts_pressed && (ts_row == 0) && (ts_col >= 31 && ts_col <= 40)) {
+        toggle_setlist_mode();
+    }
+
+    buf += ansi_move_cursor_col(buf, 43);
+    if (ux_report.is_setlist_mode) {
+        buf += sprintf(buf, "%3d/%3d", ux_report.sl_val, ux_report.sl_max);
+    } else {
+        buf += sprintf(buf, "%3d/%3d", ux_report.pr_val, ux_report.pr_max);
     }
 
     // Move cursor to last touchscreen row,col:
@@ -301,6 +339,8 @@ void ux_draw(void) {
 
     // Send update to tty in one write call to reduce lag/tear:
     write(tty_fd, out, buf - out);
+
+    last_ts_touching = ts_touching;
 #else
 # ifdef FEAT_LCD
     u8 row;

@@ -105,6 +105,30 @@ extern rom const u8 *flash_addr(u16 addr);
 
 /* export */ extern void controller_handle(void);
 
+void prev_scene(void);
+
+void next_scene(void);
+
+void reset_scene(void);
+
+void prev_song(void);
+
+void next_song(void);
+
+void activate_program(int pr_idx);
+
+void activate_song(int sl_idx);
+
+void midi_invalidate(void);
+
+void toggle_setlist_mode(void);
+
+void tap_tempo(void);
+
+void get_program_name(int pr_idx, char *name);
+
+int get_set_list_program(int sl_idx);
+
 #ifdef HWFEAT_LABEL_UPDATES
 
 // --------------- Change button labels (for Win32 / HTML5 interfaces only):
