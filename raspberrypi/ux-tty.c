@@ -356,6 +356,8 @@ void ux_draw(void) {
         }
     } else {
         if (ts_pressed && (ts_row >= 0 && ts_row <= 10) && (ts_col >= 6 && ts_col <= 29)) {
+            // TODO: record which row started a drag, if any.
+            // TODO: close drop-down if no drag and released on same row as pressed.
             // Close the drop-down:
             song_drop_down = false;
             for (int i = 0; i < 10; i++) {
@@ -396,7 +398,7 @@ void ux_draw(void) {
     buf += sprintf(buf, "(%s)", ux_report.is_setlist_mode ? "SETLIST" : "PROGRAM");
 
     // Toggle setlist/program mode on first press:
-    if (ts_pressed && (ts_row == 0) && (ts_col >= 31 && ts_col <= 40)) {
+    if (ts_pressed && (ts_row == 0) && (ts_col >= 31 && ts_col <= 39)) {
         toggle_setlist_mode();
     }
 
