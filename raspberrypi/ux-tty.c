@@ -15,7 +15,8 @@
 
 #include "ux.h"
 
-#define tty0 "/dev/tty0"
+//#define tty0 "/dev/tty0"
+#define tty0 "/dev/pts/0"
 
 #define ts_input "/dev/input/event1"
 #define ts_device_name "FT5406 memory based driver"
@@ -165,6 +166,33 @@ int ts_init(void) {
     return 0;
 }
 
+bool ts_handle_input_event(struct input_event *ev);
+
+bool mouse_poll();
+
+bool ts_handle_input_event(struct input_event *ev) {
+    bool changed;
+    switch ((*ev).code) {
+        case ABS_MT_POSITION_X:
+            ts_x = (*ev).value;
+            ts_col = ((*ev).value - ts_x_min) / ((ts_x_max - ts_x_min) / tty_win.ws_col);
+            changed = true;
+            break;
+        case ABS_MT_POSITION_Y:
+            ts_y = (*ev).value;
+            ts_row = ((*ev).value - ts_y_min) / ((ts_y_max - ts_y_min) / tty_win.ws_row);
+            changed = true;
+            break;
+        case ABS_MT_TRACKING_ID:
+            ts_touching = ((*ev).value != -1);
+            changed = true;
+            break;
+        default:
+            break;
+    }
+    return changed;
+}
+
 bool ts_poll(void) {
     bool changed = false;
     struct input_event ev;
@@ -173,24 +201,7 @@ bool ts_poll(void) {
     while (read(ts_fd, &ev, size) == size) {
         if (ev.type != EV_ABS) continue;
 
-        switch (ev.code) {
-            case ABS_MT_POSITION_X:
-                ts_x = ev.value;
-                ts_col = (ev.value - ts_x_min) / ((ts_x_max - ts_x_min) / tty_win.ws_col);
-                changed = true;
-                break;
-            case ABS_MT_POSITION_Y:
-                ts_y = ev.value;
-                ts_row = (ev.value - ts_y_min) / ((ts_y_max - ts_y_min) / tty_win.ws_row);
-                changed = true;
-                break;
-            case ABS_MT_TRACKING_ID:
-                ts_touching = (ev.value != -1);
-                changed = true;
-                break;
-            default:
-                break;
-        }
+        changed = ts_handle_input_event(&ev);
     }
 
 #if 1
@@ -214,13 +225,67 @@ int ux_init(void) {
         return retval;
     }
 
+    // set stdin to non-blocking so we can read mouse events:
+    fcntl(0, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
+
+    // enable xterm mouse reporting:
+    write(STDOUT_FILENO, ANSI_CSI "?1003h", STRLEN(ANSI_CSI "?1003h"));
+
     return 0;
 }
 
 // Poll for UX inputs:
+bool mouse_poll() {
+    bool changed = false;
+    // `ESC` `[` `M` bxy
+    char buf[7];
+    size_t size = 7u;
+    ssize_t n;
+
+    // read mouse events from stdin:
+    while ((n = read(STDIN_FILENO, buf, size)) > 0) {
+        char *esc = strchr(buf, '\033');
+        if (esc == NULL) continue;
+
+        // NOTE: assume we have the full mouse report message in `buf` and that it doesn't cross into the next buffer.
+        if (esc + 6 > buf + n) {
+            fprintf(stderr, "buffer not large enough to contain full mouse report!\n");
+            continue;
+        }
+
+        if (esc[1] != '[') continue;
+        if (esc[2] != 'M') continue;
+        // b encodes what mouse button was pressed or released combined with keyboard modifiers.
+        char b = esc[3] - (char) 0x20;
+        char x = esc[4] - (char) 0x20;
+        char y = esc[5] - (char) 0x20;
+
+        fprintf(stderr, "MOUSE: b=%d x=%d y=%d\n", (int) b, (int) x, (int) y);
+
+        // generate input_events for touchscreen compatibility:
+        struct input_event ev;
+        ev.type = EV_ABS;
+        ev.code = ABS_MT_TRACKING_ID;
+        ev.value = (b & 3) != 3 ? 1 : -1; // pressed = 1 vs. released = -1
+        changed |= ts_handle_input_event(&ev);
+
+        ev.code = ABS_MT_POSITION_X;
+        ev.value = (x - 1) * (ts_x_max - ts_x_min) / (tty_win.ws_col) + ts_x_min;
+        changed |= ts_handle_input_event(&ev);
+
+        ev.code = ABS_MT_POSITION_Y;
+        ev.value = (y - 1) * (ts_y_max - ts_y_min) / (tty_win.ws_row) + ts_y_min;
+        changed |= ts_handle_input_event(&ev);
+    }
+
+    return changed;
+}
+
 bool ux_poll(void) {
     // Poll for touchscreen input:
     bool changed = ts_poll();
+
+    changed |= mouse_poll();
 
     // Register a redraw if touchscreen input changed:
     if (changed) {
