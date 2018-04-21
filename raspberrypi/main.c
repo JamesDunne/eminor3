@@ -24,11 +24,11 @@
 // Hardware interface from controller:
 void debug_log(const char *fmt, ...) {
     va_list ap;
-    printf("DEBUG: ");
+    fprintf(stderr, "DEBUG: ");
     va_start(ap, fmt);
-    vprintf(fmt, ap);
+    vfprintf(stderr, fmt, ap);
     va_end(ap);
-    printf("\n");
+    fprintf(stderr, "\n");
 }
 
 #ifdef HWFEAT_LABEL_UPDATES

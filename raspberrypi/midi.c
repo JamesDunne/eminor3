@@ -42,7 +42,7 @@ void midi_send_cmd1_impl(u8 cmd_byte, u8 data1) {
         perror("Error sending MIDI bytes");
         return;
     }
-    printf("MIDI: %02X %02X\n", cmd_byte, data1);
+    fprintf(stderr, "MIDI: %02X %02X\n", cmd_byte, data1);
 }
 
 void midi_send_cmd2_impl(u8 cmd_byte, u8 data1, u8 data2) {
@@ -56,7 +56,7 @@ void midi_send_cmd2_impl(u8 cmd_byte, u8 data1, u8 data2) {
         perror("Error sending MIDI bytes");
         return;
     }
-    printf("MIDI: %02X %02X %02X\n", cmd_byte, data1, data2);
+    fprintf(stderr, "MIDI: %02X %02X %02X\n", cmd_byte, data1, data2);
 }
 
 // 256 byte buffer for batching up SysEx data to send in one write() call:
@@ -65,7 +65,7 @@ size_t sysex_p = 0;
 
 // Buffer up SysEx data until terminating F7 byte is encountered:
 void midi_send_sysex(u8 byte) {
-    //printf("MIDI: %02X\n", byte);
+    //fprintf(stderr, "MIDI: %02X\n", byte);
 
     if (sysex_p >= 256) {
         fprintf(stderr, "MIDI SysEx data too large (>= 256 bytes)\n");
@@ -80,11 +80,11 @@ void midi_send_sysex(u8 byte) {
         size_t write_count = sysex_p;
         sysex_p = 0;
 
-        printf("MIDI SysEx:");
+        fprintf(stderr, "MIDI SysEx:");
         for (i = 0; i < write_count; i++) {
-            printf(" %02X", sysex[i]);
+            fprintf(stderr, " %02X", sysex[i]);
         }
-        printf("\n");
+        fprintf(stderr, "\n");
 
         ssize_t count = write(midi_fd, sysex, write_count);
         if (count < 0) {

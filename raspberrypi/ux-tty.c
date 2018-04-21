@@ -91,7 +91,7 @@ int tty_init(void) {
     }
 
     // ws_xpixel, ws_ypixel are 0, 0
-    printf("TTY cols = %d, rows = %d\n", tty_win.ws_col, tty_win.ws_row);
+    fprintf(stderr, "TTY cols = %d, rows = %d\n", tty_win.ws_col, tty_win.ws_row);
 
     // Disable echo on tty0:
     ux_settty();
@@ -125,11 +125,11 @@ int ts_init(void) {
 
     // Get device name:
     ioctl(ts_fd, EVIOCGNAME(sizeof(name)), name);
-    printf("TS device name: %s\n", name);
+    fprintf(stderr, "TS device name: %s\n", name);
 
     // Verify our expectations:
     if (strncmp(ts_device_name, name, 256) != 0) {
-        printf("TS device name does not match expected: \"" ts_device_name "\"");
+        fprintf(stderr, "TS device name does not match expected: \"" ts_device_name "\"");
         return 9;
     }
 
@@ -138,7 +138,7 @@ int ts_init(void) {
     ioctl(ts_fd, EVIOCGBIT(0, EV_MAX), bit[0]);
 
     if (!test_bit(EV_ABS, bit[0])) {
-        printf("TS device does not support EV_ABS events!\n");
+        fprintf(stderr, "TS device does not support EV_ABS events!\n");
         return 10;
     }
 
@@ -147,20 +147,20 @@ int ts_init(void) {
 
     // Read X,Y bounds:
     if (!test_bit(ABS_MT_POSITION_X, bit[EV_ABS])) {
-        printf("TS device does not support ABS_MT_POSITION_X!\n");
+        fprintf(stderr, "TS device does not support ABS_MT_POSITION_X!\n");
     }
     ioctl(ts_fd, EVIOCGABS(ABS_MT_POSITION_X), abs);
     ts_x_min = abs[1];
     ts_x_max = abs[2];
 
     if (!test_bit(ABS_MT_POSITION_Y, bit[EV_ABS])) {
-        printf("TS device does not support ABS_MT_POSITION_Y!\n");
+        fprintf(stderr, "TS device does not support ABS_MT_POSITION_Y!\n");
     }
     ioctl(ts_fd, EVIOCGABS(ABS_MT_POSITION_Y), abs);
     ts_y_min = abs[1];
     ts_y_max = abs[2];
 
-    printf("TS bounds: X: [%d, %d]; Y: [%d, %d]\n", ts_x_min, ts_x_max, ts_y_min, ts_y_max);
+    fprintf(stderr, "TS bounds: X: [%d, %d]; Y: [%d, %d]\n", ts_x_min, ts_x_max, ts_y_min, ts_y_max);
 
     return 0;
 }
@@ -195,7 +195,7 @@ bool ts_poll(void) {
 
 #if 1
     if (changed) {
-        printf("TS (%d, %d)\n", ts_row, ts_col);
+        fprintf(stderr, "TS (%d, %d)\n", ts_row, ts_col);
     }
 #endif
 
@@ -262,6 +262,10 @@ int ansi_clear_screen(char *buf) {
     return sprintf(buf, ANSI_RIS);
 }
 
+int ansi_erase_cols(char *buf, int cols) {
+    return sprintf(buf, ANSI_CSI "%dX", cols);
+}
+
 // Draw UX screen:
 void ux_draw(void) {
     // Only redraw if necessary:
@@ -289,7 +293,11 @@ void ux_draw(void) {
         if (ts_pressed && (ts_row >= 0 && ts_row <= 10) && (ts_col >= 6 && ts_col <= 29)) {
             // Close the drop-down:
             song_drop_down = false;
-            buf += ansi_clear_screen(buf);
+            for (int i = 0; i < 10; i++) {
+                buf += ansi_move_cursor(buf, 0 + i, 6);
+                // Erase 20+4 characters:
+                buf += ansi_erase_cols(buf, REPORT_PR_NAME_LEN + 4);
+            }
         }
     }
 

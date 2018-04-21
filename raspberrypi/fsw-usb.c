@@ -33,7 +33,7 @@ int fsw_init(void) {
 
     // rep = {250, 33}. 250 is ms delay before repeat, 33 is ms repeat period.
 #if 0
-    printf("rep = {%d, %d}\n", rep[0], rep[1]);
+    fprintf(stderr, "rep = {%d, %d}\n", rep[0], rep[1]);
 #endif
     rep[0] = 750;
     rep[1] = 100;
@@ -61,7 +61,7 @@ u16 fsw_poll(void) {
     while (read(fsw_fd, &ev, size) == size) {
 #if 0
         // debug code to view event data:
-        printf("0x%04X 0x%04X 0x%08X\n", ev.type, ev.code, ev.value);
+        fprintf(stderr, "0x%04X 0x%04X 0x%08X\n", ev.type, ev.code, ev.value);
 #endif
 
         if (ev.type != EV_KEY) continue;

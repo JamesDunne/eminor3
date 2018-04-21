@@ -31,7 +31,7 @@ int main() {
     const u8 slave_addr_btns = 0x3E;
     const u8 slave_addr_leds = 0x70;
 
-    printf("i2c_init()\n");
+    fprintf(stderr, "i2c_init()\n");
     i2c_init();
 
     printf("sx1509_setup(0x%02X)\n", slave_addr_btns);
