@@ -229,7 +229,8 @@ int ux_init(void) {
     fcntl(0, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
     // enable xterm mouse reporting:
-    write(STDOUT_FILENO, ANSI_CSI "?1003h", STRLEN(ANSI_CSI "?1003h"));
+    write(STDOUT_FILENO, ANSI_CSI "?1003h", STRLEN(ANSI_CSI
+                                                           "?1003h"));
 
     return 0;
 }
@@ -331,6 +332,19 @@ int ansi_erase_cols(char *buf, int cols) {
     return sprintf(buf, ANSI_CSI "%dX", cols);
 }
 
+bool ux_get_sl_name(int sl_idx, char *name) {
+    int pr = get_set_list_program(sl_idx);
+    if (pr < 0) return false;
+
+    get_program_name(pr, name);
+    return true;
+}
+
+bool ux_get_pr_name(int pr_idx, char *name) {
+    get_program_name(pr_idx, name);
+    return true;
+}
+
 // Draw UX screen:
 void ux_draw(void) {
     // Only redraw if necessary:
@@ -343,23 +357,45 @@ void ux_draw(void) {
     char *buf = out;
 
     static bool last_ts_touching = false;
-    static bool song_drop_down = false;
+
+    struct dd_state {
+        bool is_open;
+        int drag_row;
+        int rows;
+        int list_offset;
+        int list_count;
+
+        bool (*list_item)(int i, char *name);
+    };
+    static struct dd_state dd_song = {
+            is_open: false,
+            rows: 10,
+    };
 
     bool ts_pressed = !last_ts_touching && ts_touching;
 
     // Show program name at top as a drop-down menu:
     // Tap to drop-down song list:
-    if (!song_drop_down) {
+    if (!dd_song.is_open) {
         if (ts_pressed && (ts_row == 0) && (ts_col >= 6 && ts_col <= 29)) {
             // Show the drop-down:
-            song_drop_down = true;
+            dd_song.is_open = true;
+            if (ux_report.is_setlist_mode) {
+                dd_song.list_item = ux_get_sl_name;
+                dd_song.list_count = ux_report.sl_max - 1;
+                dd_song.list_offset = 0;
+            } else {
+                dd_song.list_item = ux_get_pr_name;
+                dd_song.list_count = ux_report.pr_max - 1;
+                dd_song.list_offset = 0;
+            }
         }
     } else {
         if (ts_pressed && (ts_row >= 0 && ts_row <= 10) && (ts_col >= 6 && ts_col <= 29)) {
             // TODO: record which row started a drag, if any.
             // TODO: close drop-down if no drag and released on same row as pressed.
             // Close the drop-down:
-            song_drop_down = false;
+            dd_song.is_open = false;
             for (int i = 0; i < 10; i++) {
                 buf += ansi_move_cursor(buf, 0 + i, 6);
                 // Erase 20+4 characters:
@@ -368,7 +404,7 @@ void ux_draw(void) {
         }
     }
 
-    if (!song_drop_down) {
+    if (!dd_song.is_open) {
         buf += ansi_move_cursor(buf, 0, 0);
         buf += sprintf(
                 buf,
@@ -377,17 +413,11 @@ void ux_draw(void) {
                 REPORT_PR_NAME_LEN,
                 ux_report.pr_name
         );
-    } else if (song_drop_down) {
+    } else if (dd_song.is_open) {
         // Render drop-down:
-        for (int i = 0; i < 10; i++) {
-            int pr;
+        for (int i = 0; i < dd_song.rows; i++) {
             char name[REPORT_PR_NAME_LEN];
-            if (ux_report.is_setlist_mode) {
-                pr = get_set_list_program(i);
-            } else {
-                pr = i;
-            }
-            get_program_name(pr, name);
+            dd_song.list_item(i + dd_song.list_offset, name);
 
             buf += ansi_move_cursor(buf, 0 + i, 6);
             buf += sprintf(buf, "| %-*s |", REPORT_PR_NAME_LEN, name);
