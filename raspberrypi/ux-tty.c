@@ -45,7 +45,6 @@ int ts_y_min;
 int ts_y_max;
 
 bool ts_touching = false;
-bool ts_released = false;
 int ts_x, ts_col;
 int ts_y, ts_row;
 
@@ -169,6 +168,10 @@ int ts_init(void) {
 bool ts_handle_input_event(struct input_event *ev);
 
 bool mouse_poll();
+
+int max(int a, int b);
+
+int min(int a, int b);
 
 bool ts_handle_input_event(struct input_event *ev) {
     bool changed;
@@ -345,6 +348,31 @@ bool ux_get_pr_name(int pr_idx, char *name) {
     return true;
 }
 
+struct dd_state {
+    bool is_open;
+
+    int drag_row;
+    bool is_dragging;
+
+    int rows;
+    int list_offset;
+    int list_count;
+
+    bool (*list_item)(int i, char *name);
+};
+
+int dd_set_offset(struct dd_state *dd, int i) {
+    dd->list_offset = min(max(0, i - (dd->rows / 2)), min(dd->rows, dd->list_count));
+}
+
+int max(int a, int b) {
+    return a > b ? a : b;
+}
+
+int min(int a, int b) {
+    return a < b ? a : b;
+}
+
 // Draw UX screen:
 void ux_draw(void) {
     // Only redraw if necessary:
@@ -358,21 +386,13 @@ void ux_draw(void) {
 
     static bool last_ts_touching = false;
 
-    struct dd_state {
-        bool is_open;
-        int drag_row;
-        int rows;
-        int list_offset;
-        int list_count;
-
-        bool (*list_item)(int i, char *name);
-    };
     static struct dd_state dd_song = {
             is_open: false,
             rows: 10,
     };
 
     bool ts_pressed = !last_ts_touching && ts_touching;
+    bool ts_released = last_ts_touching && !ts_touching;
 
     // Show program name at top as a drop-down menu:
     // Tap to drop-down song list:
@@ -383,23 +403,35 @@ void ux_draw(void) {
             if (ux_report.is_setlist_mode) {
                 dd_song.list_item = ux_get_sl_name;
                 dd_song.list_count = ux_report.sl_max - 1;
-                dd_song.list_offset = 0;
+                dd_set_offset(&dd_song, (ux_report.sl_val - 1));
             } else {
                 dd_song.list_item = ux_get_pr_name;
                 dd_song.list_count = ux_report.pr_max - 1;
-                dd_song.list_offset = 0;
+                dd_song.list_offset = max(0, (ux_report.pr_val - 1) - (dd_song.rows / 2));
+                dd_set_offset(&dd_song, (ux_report.sl_val - 1));
             }
         }
     } else {
-        if (ts_pressed && (ts_row >= 0 && ts_row <= 10) && (ts_col >= 6 && ts_col <= 29)) {
-            // TODO: record which row started a drag, if any.
-            // TODO: close drop-down if no drag and released on same row as pressed.
-            // Close the drop-down:
-            dd_song.is_open = false;
-            for (int i = 0; i < 10; i++) {
-                buf += ansi_move_cursor(buf, 0 + i, 6);
-                // Erase 20+4 characters:
-                buf += ansi_erase_cols(buf, REPORT_PR_NAME_LEN + 4);
+        if ((ts_row >= 0 && ts_row <= 10) && (ts_col >= 6 && ts_col <= 29)) {
+            if (ts_pressed) {
+                // Record which row started a drag, if any.
+                dd_song.drag_row = ts_row;
+            } else if (ts_released) {
+                // Close drop-down if no drag and released on same row as pressed.
+                if (!dd_song.is_dragging) {
+                    // Close the drop-down:
+                    dd_song.is_open = false;
+                    for (int i = 0; i < dd_song.rows; i++) {
+                        buf += ansi_move_cursor(buf, 0 + i, 6);
+                        // Erase 20+4 characters:
+                        buf += ansi_erase_cols(buf, REPORT_PR_NAME_LEN + 4);
+                    }
+                }
+            } else if (ts_touching) {
+                if (dd_song.drag_row != ts_row) {
+                    dd_song.is_dragging = true;
+                    dd_song.list_offset = 0;
+                }
             }
         }
     }
