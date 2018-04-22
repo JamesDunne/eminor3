@@ -18,7 +18,7 @@
 #include "ux.h"
 
 //#define tty0 "/dev/tty0"
-#define tty0 "/dev/pts/0"
+#define tty0 "/dev/stdout"
 
 #define ts_input "/dev/input/event1"
 #define ts_device_name "FT5406 memory based driver"
@@ -496,6 +496,7 @@ void ux_draw(void) {
         }
     }
 
+    // Render song drop-down:
     buf += ansi_move_cursor(buf, 0, 0);
     buf += sprintf(
             buf,
@@ -515,6 +516,7 @@ void ux_draw(void) {
         }
     }
 
+    // Setlist/program toggle button:
     buf += ansi_move_cursor(buf, 0, 31);
     buf += sprintf(buf, "(%s)", ux_report.is_setlist_mode ? "SETLIST" : "PROGRAM");
 
@@ -523,6 +525,7 @@ void ux_draw(void) {
         toggle_setlist_mode();
     }
 
+    // Show song/program index:
     buf += ansi_move_cursor_col(buf, 43);
     if (ux_report.is_setlist_mode) {
         buf += sprintf(buf, "%3d/%3d", ux_report.sl_val, ux_report.sl_max);
