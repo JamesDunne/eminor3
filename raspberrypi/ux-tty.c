@@ -419,7 +419,7 @@ void ux_draw(void) {
 
     static struct dd_state dd_song = {
             is_open: false,
-            rows: 15,
+            rows: 14,
     };
 
     bool ts_pressed = !last_ts_touching && ts_touching;
@@ -444,7 +444,14 @@ void ux_draw(void) {
             }
         }
     } else {
-        if ((ts_row >= 0 && ts_row <= 0 + dd_song.rows) && (ts_col >= 6 && ts_col <= 29)) {
+        bool closing = false;
+
+        if ((ts_row == 0 && ts_row <= 1 + dd_song.rows) && (ts_col >= 6 && ts_col <= 29)) {
+            if (ts_released) {
+                // Close the drop-down and cancel:
+                closing = true;
+            }
+        } else if ((ts_row >= 1 && ts_row <= 1 + dd_song.rows) && (ts_col >= 6 && ts_col <= 29)) {
             if (ts_pressed) {
                 // Record which row started a drag, if any.
                 dd_song.drag_row = ts_row;
@@ -452,51 +459,58 @@ void ux_draw(void) {
                 // Close drop-down if no drag and released on same row as pressed.
                 if (!dd_song.is_dragging) {
                     // Close the drop-down:
-                    dd_song.is_open = false;
-                    for (int i = 0; i < dd_song.rows; i++) {
-                        buf += ansi_move_cursor(buf, 0 + i, 6);
-                        // Erase 20+4 characters:
-                        buf += ansi_erase_cols(buf, REPORT_PR_NAME_LEN + 4);
-                    }
+                    closing = true;
                     // Select current item:
-                    dd_song.item_index = dd_song.list_offset + (ts_row - 0);
+                    dd_song.item_index = dd_song.list_offset + (ts_row - 1);
                     if (ux_report.is_setlist_mode) {
                         activate_song(dd_song.item_index);
                     } else {
                         activate_program(dd_song.item_index);
                     }
                 } else {
+                    // Stop dragging:
                     dd_song.is_dragging = false;
                     dd_song.drag_row = -1;
                 }
             } else if (ts_touching) {
                 if (dd_song.drag_row != ts_row) {
+                    // Start dragging:
                     if (!dd_song.is_dragging) {
                         dd_song.is_dragging = true;
                         dd_song.drag_offset = dd_song.list_offset;
                     }
+                    // Adjust list offset based on drag distance:
                     dd_set_offset(&dd_song, dd_song.drag_offset + (dd_song.drag_row - ts_row));
                 }
             }
         }
+
+        if (closing) {
+            // Close the drop-down and erase dirty bit:
+            dd_song.is_open = false;
+            for (int i = 0; i < dd_song.rows; i++) {
+                buf += ansi_move_cursor(buf, 1 + i, 6);
+                // Erase 20+4 characters:
+                buf += ansi_erase_cols(buf, REPORT_PR_NAME_LEN + 4);
+            }
+        }
     }
 
-    if (!dd_song.is_open) {
-        buf += ansi_move_cursor(buf, 0, 0);
-        buf += sprintf(
-                buf,
-                "Song: [%c%-*s ]",
-                ux_report.is_modified ? '*' : ' ',
-                REPORT_PR_NAME_LEN,
-                ux_report.pr_name
-        );
-    } else if (dd_song.is_open) {
+    buf += ansi_move_cursor(buf, 0, 0);
+    buf += sprintf(
+            buf,
+            "Song: [%c%-*s ]",
+            ux_report.is_modified ? '*' : ' ',
+            REPORT_PR_NAME_LEN,
+            ux_report.pr_name
+    );
+    if (dd_song.is_open) {
         // Render drop-down:
         for (int i = 0; i < dd_song.rows; i++) {
             char name[REPORT_PR_NAME_LEN];
             dd_song.list_item(i + dd_song.list_offset, name);
 
-            buf += ansi_move_cursor(buf, 0 + i, 6);
+            buf += ansi_move_cursor(buf, 1 + i, 6);
             buf += sprintf(buf, "| %-*s |", REPORT_PR_NAME_LEN, name);
         }
     }
