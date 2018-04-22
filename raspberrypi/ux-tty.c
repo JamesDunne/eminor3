@@ -375,8 +375,9 @@ bool ux_get_pr_name(int pr_idx, char *name) {
 struct dd_state {
     bool is_open;
 
-    int drag_row;
     bool is_dragging;
+    int drag_row;
+    int drag_offset;
 
     int rows;
     int list_offset;
@@ -386,7 +387,7 @@ struct dd_state {
 };
 
 int dd_set_offset(struct dd_state *dd, int i) {
-    dd->list_offset = min(max(0, i - (dd->rows / 2)), min(dd->rows, dd->list_count));
+    dd->list_offset = min(max(0, i), max(0, dd->list_count - dd->rows));
 }
 
 int max(int a, int b) {
@@ -421,22 +422,21 @@ void ux_draw(void) {
     // Show program name at top as a drop-down menu:
     // Tap to drop-down song list:
     if (!dd_song.is_open) {
-        if (ts_pressed && (ts_row == 0) && (ts_col >= 6 && ts_col <= 29)) {
+        if (ts_released && (ts_row == 0) && (ts_col >= 6 && ts_col <= 29)) {
             // Show the drop-down:
             dd_song.is_open = true;
             if (ux_report.is_setlist_mode) {
                 dd_song.list_item = ux_get_sl_name;
                 dd_song.list_count = ux_report.sl_max - 1;
-                dd_set_offset(&dd_song, (ux_report.sl_val - 1));
+                dd_set_offset(&dd_song, (ux_report.sl_val - 1) - (dd_song.rows / 2));
             } else {
                 dd_song.list_item = ux_get_pr_name;
                 dd_song.list_count = ux_report.pr_max - 1;
-                dd_song.list_offset = max(0, (ux_report.pr_val - 1) - (dd_song.rows / 2));
-                dd_set_offset(&dd_song, (ux_report.sl_val - 1));
+                dd_set_offset(&dd_song, (ux_report.sl_val - 1) - (dd_song.rows / 2));
             }
         }
     } else {
-        if ((ts_row >= 0 && ts_row <= 10) && (ts_col >= 6 && ts_col <= 29)) {
+        if ((ts_row >= 0 && ts_row <= 0 + dd_song.rows) && (ts_col >= 6 && ts_col <= 29)) {
             if (ts_pressed) {
                 // Record which row started a drag, if any.
                 dd_song.drag_row = ts_row;
@@ -456,8 +456,11 @@ void ux_draw(void) {
                 }
             } else if (ts_touching) {
                 if (dd_song.drag_row != ts_row) {
-                    dd_song.is_dragging = true;
-                    dd_song.list_offset = 0;
+                    if (!dd_song.is_dragging) {
+                        dd_song.is_dragging = true;
+                        dd_song.drag_offset = dd_song.list_offset;
+                    }
+                    dd_set_offset(&dd_song, dd_song.drag_offset + (dd_song.drag_row - ts_row));
                 }
             }
         }
