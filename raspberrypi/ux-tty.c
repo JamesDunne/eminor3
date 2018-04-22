@@ -232,6 +232,7 @@ void ux_shutdown() {
 void ux_shutdown_signal(int signal) {
     (void)signal;
 
+    // shutdown UX:
     ux_shutdown();
 
     // exit process cleanly:
@@ -256,6 +257,7 @@ int ux_init(void) {
     // enable xterm mouse reporting:
     write(STDOUT_FILENO, ANSI_CSI "?1003h", STRLEN(ANSI_CSI "?1003h"));
 
+    // register atexit and SIGINT handler for CTRL-C:
     atexit(ux_shutdown);
     signal(SIGINT, ux_shutdown_signal);
 
