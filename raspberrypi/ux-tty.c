@@ -426,6 +426,9 @@ void ux_draw(void) {
                         // Erase 20+4 characters:
                         buf += ansi_erase_cols(buf, REPORT_PR_NAME_LEN + 4);
                     }
+                } else {
+                    dd_song.is_dragging = false;
+                    dd_song.drag_row = -1;
                 }
             } else if (ts_touching) {
                 if (dd_song.drag_row != ts_row) {
