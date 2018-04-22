@@ -9,6 +9,8 @@
 #include <termios.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <bits/signum.h>
+#include <signal.h>
 
 #include "types.h"
 #include "hardware.h"
@@ -66,7 +68,6 @@ void ux_settty(void) {
 
     // Save current state of tty0 and restore it at exit:
     tcgetattr(tty_fd, &saved_attributes);
-    atexit(reset_input_mode);
 
     // Disable local echo:
     tcgetattr(tty_fd, &tattr);
@@ -216,6 +217,27 @@ bool ts_poll(void) {
     return changed;
 }
 
+// Shutdown UX, close files, and restore sane tty:
+void ux_shutdown() {
+    // disable xterm mouse reporting:
+    write(STDOUT_FILENO, ANSI_CSI "?1000l", STRLEN(ANSI_CSI "?1000l"));
+
+    // reset stdin:
+    reset_input_mode();
+
+    close(tty_fd);
+    close(ts_fd);
+}
+
+void ux_shutdown_signal(int signal) {
+    (void)signal;
+
+    ux_shutdown();
+
+    // exit process cleanly:
+    exit(0);
+}
+
 // Initialize UX for a tty CUI - open /dev/tty0 for text-mode GUI (CUI) and clear screen:
 int ux_init(void) {
     int retval;
@@ -232,8 +254,10 @@ int ux_init(void) {
     fcntl(0, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
     // enable xterm mouse reporting:
-    write(STDOUT_FILENO, ANSI_CSI "?1003h", STRLEN(ANSI_CSI
-                                                           "?1003h"));
+    write(STDOUT_FILENO, ANSI_CSI "?1003h", STRLEN(ANSI_CSI "?1003h"));
+
+    atexit(ux_shutdown);
+    signal(SIGINT, ux_shutdown_signal);
 
     return 0;
 }
