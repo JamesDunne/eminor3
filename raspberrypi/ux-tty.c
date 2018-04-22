@@ -220,7 +220,8 @@ bool ts_poll(void) {
 // Shutdown UX, close files, and restore sane tty:
 void ux_shutdown() {
     // disable xterm mouse reporting:
-    write(STDOUT_FILENO, ANSI_CSI "?1000l", STRLEN(ANSI_CSI "?1000l"));
+    write(STDOUT_FILENO, ANSI_CSI "?1000l", STRLEN(ANSI_CSI
+                                                           "?1000l"));
 
     // reset stdin:
     reset_input_mode();
@@ -230,7 +231,7 @@ void ux_shutdown() {
 }
 
 void ux_shutdown_signal(int signal) {
-    (void)signal;
+    (void) signal;
 
     // shutdown UX:
     ux_shutdown();
@@ -255,7 +256,8 @@ int ux_init(void) {
     fcntl(0, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
     // enable xterm mouse reporting:
-    write(STDOUT_FILENO, ANSI_CSI "?1003h", STRLEN(ANSI_CSI "?1003h"));
+    write(STDOUT_FILENO, ANSI_CSI "?1003h", STRLEN(ANSI_CSI
+                                                           "?1003h"));
 
     // register atexit and SIGINT handler for CTRL-C:
     atexit(ux_shutdown);
@@ -385,11 +387,13 @@ struct dd_state {
     int list_offset;
     int list_count;
 
+    int item_index;
+
     bool (*list_item)(int i, char *name);
 };
 
 int dd_set_offset(struct dd_state *dd, int i) {
-    dd->list_offset = min(max(0, i), max(0, dd->list_count - dd->rows));
+    dd->list_offset = min(max(0, i), max(0, dd->list_count - dd->rows + 1));
 }
 
 int max(int a, int b) {
@@ -415,7 +419,7 @@ void ux_draw(void) {
 
     static struct dd_state dd_song = {
             is_open: false,
-            rows: 10,
+            rows: 15,
     };
 
     bool ts_pressed = !last_ts_touching && ts_touching;
@@ -428,13 +432,15 @@ void ux_draw(void) {
             // Show the drop-down:
             dd_song.is_open = true;
             if (ux_report.is_setlist_mode) {
+                dd_song.item_index = ux_report.sl_val - 1;
                 dd_song.list_item = ux_get_sl_name;
                 dd_song.list_count = ux_report.sl_max - 1;
-                dd_set_offset(&dd_song, (ux_report.sl_val - 1) - (dd_song.rows / 2));
+                dd_set_offset(&dd_song, dd_song.item_index - (dd_song.rows / 2));
             } else {
+                dd_song.item_index = ux_report.pr_val - 1;
                 dd_song.list_item = ux_get_pr_name;
                 dd_song.list_count = ux_report.pr_max - 1;
-                dd_set_offset(&dd_song, (ux_report.sl_val - 1) - (dd_song.rows / 2));
+                dd_set_offset(&dd_song, dd_song.item_index - (dd_song.rows / 2));
             }
         }
     } else {
@@ -451,6 +457,13 @@ void ux_draw(void) {
                         buf += ansi_move_cursor(buf, 0 + i, 6);
                         // Erase 20+4 characters:
                         buf += ansi_erase_cols(buf, REPORT_PR_NAME_LEN + 4);
+                    }
+                    // Select current item:
+                    dd_song.item_index = dd_song.list_offset + (ts_row - 0);
+                    if (ux_report.is_setlist_mode) {
+                        activate_song(dd_song.item_index);
+                    } else {
+                        activate_program(dd_song.item_index);
                     }
                 } else {
                     dd_song.is_dragging = false;
