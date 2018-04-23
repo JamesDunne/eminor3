@@ -565,10 +565,15 @@ void ux_draw(void) {
         // Render drop-down list on top:
         for (int i = 0; i < dd_song.rows; i++) {
             char name[REPORT_PR_NAME_LEN];
-            dd_song.list_item(i + dd_song.list_offset, name);
+            int item_index = i + dd_song.list_offset;
+            dd_song.list_item(item_index, name);
 
             buf += ansi_move_cursor(buf, 1 + i, 6);
-            buf += sprintf(buf, "| %-*s |", REPORT_PR_NAME_LEN, name);
+            if (item_index == dd_song.item_index) {
+                buf += sprintf(buf, "\u2503" ANSI_CSI"7m" " %-*s " ANSI_CSI"0m" "\u2503", REPORT_PR_NAME_LEN, name);
+            } else {
+                buf += sprintf(buf, "\u2503 %-*s \u2503", REPORT_PR_NAME_LEN, name);
+            }
         }
     }
 
