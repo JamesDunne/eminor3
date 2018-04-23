@@ -299,7 +299,7 @@ static void report_build(void) {
         else
             report->amp[i].tone = AMP_TONE_CLEAN;
 
-        report->amp[i].gain_dirty = curr.amp[i].gain;
+        report->amp[i].gain_dirty = last_amp[i].gain;
         // TODO: gain_clean needs fixing controller code to be its own value
 
         report->amp[i].volume = curr.amp[i].volume;

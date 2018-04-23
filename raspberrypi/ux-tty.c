@@ -404,20 +404,21 @@ int min(int a, int b) {
     return a < b ? a : b;
 }
 
-char *ux_hslider_draw(char *buf, int row, int col, int inner_width, int value) {
+char *ux_hslider_draw(char *buf, int row, int col, int inner_width, int value, int value_max) {
     // Draw meter:
     buf += ansi_move_cursor(buf, row, col);
-    buf += sprintf(buf, "\u2503");
-    int value_width = value / 4;
-    int value_remainder = (value & 3);
+    buf += sprintf(buf, "[");
+    int value_width = value / (value_max / inner_width);
+    int value_remainder = value % (value_max / inner_width);
     int c = 0;
     for (c = 0; c < value_width; c++) {
-        buf += sprintf(buf, "\u2588");
+        //buf += sprintf(buf, "\u2588");
+        buf += sprintf(buf, "\u25A0");
     }
     for (; c < inner_width; c++) {
         buf += sprintf(buf, " ");
     }
-    buf += sprintf(buf, "\u2503");
+    buf += sprintf(buf, "]");
 
     return buf;
 }
@@ -547,11 +548,15 @@ void ux_draw(void) {
     for (int a = 0; a < 2; a++) {
         struct amp_report amp = ux_report.amp[a];
 
-        // Draw horizontal volume slider box:
+        // Draw horizontal slider box for volume:
         buf += ansi_move_cursor(buf, (a * AMP_UX_ROWS) + 1, 0);
-        buf += sprintf(buf, "Volume: ");
+        buf += sprintf(buf, "Volume: %3d", amp.volume);
+        buf = ux_hslider_draw(buf, (a * AMP_UX_ROWS) + 1, 12, 32, amp.volume + 1, 128);
 
-        buf = ux_hslider_draw(buf, (a * AMP_UX_ROWS) + 1, 12, 32, amp.volume);
+        // Draw horizontal slider box for gain:
+        buf += ansi_move_cursor(buf, (a * AMP_UX_ROWS) + 2, 0);
+        buf += sprintf(buf, "Gain:   %3d", amp.gain_dirty);
+        buf = ux_hslider_draw(buf, (a * AMP_UX_ROWS) + 2, 12, 32, amp.gain_dirty + 1, 128);
     }
 
     ///////////////////////////////////////////////////////////////////////
