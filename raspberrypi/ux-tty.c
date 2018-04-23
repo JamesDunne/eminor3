@@ -431,7 +431,7 @@ void ux_draw(void) {
 
 #ifdef HWFEAT_REPORT
     // Prefer report feature for rendering a UX:
-    char out[1000] = "";
+    char out[1500] = "";
     char *buf = out;
 
     static bool last_ts_touching = false;
@@ -542,21 +542,36 @@ void ux_draw(void) {
         buf += sprintf(buf, "%3d/%3d", ux_report.pr_val, ux_report.pr_max);
     }
 
-#define AMP_UX_ROWS 7
+    // Show second status line:
+    buf += ansi_move_cursor(buf, 1, 49 - 18);
+    buf += sprintf(buf, "%3dbpm Scene: %2d/%2d", ux_report.tempo, ux_report.sc_val, ux_report.sc_max);
+
+#define AMP_UX_ROWS 6
 
     // Render each amp dialog:
     for (int a = 0; a < 2; a++) {
+        int row = 2 + (a * AMP_UX_ROWS);
         struct amp_report amp = ux_report.amp[a];
 
         // Draw horizontal slider box for volume:
-        buf += ansi_move_cursor(buf, (a * AMP_UX_ROWS) + 1, 0);
+        buf += ansi_move_cursor(buf, row, 0);
         buf += sprintf(buf, "Volume: %3d", amp.volume);
-        buf = ux_hslider_draw(buf, (a * AMP_UX_ROWS) + 1, 12, 32, amp.volume + 1, 128);
+        buf = ux_hslider_draw(buf, row, 12, 32, amp.volume + 1, 128);
 
         // Draw horizontal slider box for gain:
-        buf += ansi_move_cursor(buf, (a * AMP_UX_ROWS) + 2, 0);
+        ++row;
+        buf += ansi_move_cursor(buf, row, 0);
         buf += sprintf(buf, "Gain:   %3d", amp.gain_dirty);
-        buf = ux_hslider_draw(buf, (a * AMP_UX_ROWS) + 2, 12, 32, amp.gain_dirty + 1, 128);
+        buf = ux_hslider_draw(buf, row, 12, 32, amp.gain_dirty + 1, 128);
+
+        ++row;
+        buf += ansi_move_cursor(buf, row, 0);
+        ++row;
+        buf += ansi_move_cursor(buf, row, 0);
+        ++row;
+        buf += ansi_move_cursor(buf, row, 0);
+        ++row;
+        buf += ansi_move_cursor(buf, row, 0);
     }
 
     ///////////////////////////////////////////////////////////////////////
@@ -579,6 +594,8 @@ void ux_draw(void) {
 
     // Move cursor to last touchscreen row,col:
     buf += ansi_move_cursor(buf, ts_row, ts_col);
+
+    fprintf(stderr, "%lu\n", buf - out);
 
     // Send update to tty in one write call to reduce lag/tear:
     write(tty_fd, out, buf - out);

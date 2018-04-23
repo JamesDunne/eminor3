@@ -276,6 +276,8 @@ static void report_build(void) {
         strncpy(report->pr_name, (const char *) pr.name, REPORT_PR_NAME_LEN);
     }
 
+    report->tempo = curr.tempo;
+
     // program modified:
     report->is_modified = (curr.modified != 0);
 

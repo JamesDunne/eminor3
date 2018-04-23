@@ -173,6 +173,7 @@ struct report {
 
     // Program name:
     char pr_name[REPORT_PR_NAME_LEN];
+    u8 tempo;
 
     // Is program modified in memory vs persisted copy:
     bool is_modified;
