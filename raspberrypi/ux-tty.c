@@ -405,16 +405,8 @@ int min(int a, int b) {
 }
 
 char *ux_hslider_draw(char *buf, int row, int col, int inner_width, int value) {
-    // Draw top boundary:
-    buf += ansi_move_cursor(buf, row, col);
-    buf += sprintf(buf, "\u250F");
-    for (int i = 0; i < inner_width; i++) {
-        buf += sprintf(buf, "\u2501");
-    }
-    buf += sprintf(buf, "\u2513");
-
     // Draw meter:
-    buf += ansi_move_cursor(buf, row+1, col);
+    buf += ansi_move_cursor(buf, row, col);
     buf += sprintf(buf, "\u2503");
     int value_width = value / 4;
     int value_remainder = (value & 3);
@@ -426,14 +418,6 @@ char *ux_hslider_draw(char *buf, int row, int col, int inner_width, int value) {
         buf += sprintf(buf, " ");
     }
     buf += sprintf(buf, "\u2503");
-
-    // Draw bottom boundary:
-    buf += ansi_move_cursor(buf, row+2, col);
-    buf += sprintf(buf, "\u2517");
-    for (int i = 0; i < inner_width; i++) {
-        buf += sprintf(buf, "\u2501");
-    }
-    buf += sprintf(buf, "\u251B");
 
     return buf;
 }
@@ -530,7 +514,7 @@ void ux_draw(void) {
         }
     }
 
-    // Render song drop-down:
+    // Render song drop-down control:
     buf += ansi_move_cursor(buf, 0, 0);
     buf += sprintf(
             buf,
@@ -539,16 +523,6 @@ void ux_draw(void) {
             REPORT_PR_NAME_LEN,
             ux_report.pr_name
     );
-    if (dd_song.is_open) {
-        // Render drop-down:
-        for (int i = 0; i < dd_song.rows; i++) {
-            char name[REPORT_PR_NAME_LEN];
-            dd_song.list_item(i + dd_song.list_offset, name);
-
-            buf += ansi_move_cursor(buf, 1 + i, 6);
-            buf += sprintf(buf, "| %-*s |", REPORT_PR_NAME_LEN, name);
-        }
-    }
 
     // Setlist/program toggle button:
     buf += ansi_move_cursor(buf, 0, 31);
@@ -567,17 +541,30 @@ void ux_draw(void) {
         buf += sprintf(buf, "%3d/%3d", ux_report.pr_val, ux_report.pr_max);
     }
 
-#define AMP_UX_ROWS 6
+#define AMP_UX_ROWS 7
 
     // Render each amp dialog:
     for (int a = 0; a < 2; a++) {
         struct amp_report amp = ux_report.amp[a];
 
         // Draw horizontal volume slider box:
-        buf += ansi_move_cursor(buf, (a*AMP_UX_ROWS)+2+1, 0);
+        buf += ansi_move_cursor(buf, (a * AMP_UX_ROWS) + 1, 0);
         buf += sprintf(buf, "Volume: ");
 
-        buf = ux_hslider_draw(buf, (a*AMP_UX_ROWS)+2+0, 12, 32, amp.volume);
+        buf = ux_hslider_draw(buf, (a * AMP_UX_ROWS) + 1, 12, 32, amp.volume);
+    }
+
+    ///////////////////////////////////////////////////////////////////////
+
+    if (dd_song.is_open) {
+        // Render drop-down list on top:
+        for (int i = 0; i < dd_song.rows; i++) {
+            char name[REPORT_PR_NAME_LEN];
+            dd_song.list_item(i + dd_song.list_offset, name);
+
+            buf += ansi_move_cursor(buf, 1 + i, 6);
+            buf += sprintf(buf, "| %-*s |", REPORT_PR_NAME_LEN, name);
+        }
     }
 
     // Move cursor to last touchscreen row,col:
