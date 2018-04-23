@@ -534,49 +534,47 @@ void ux_draw(void) {
         toggle_setlist_mode();
     }
 
-    // Show song/program index:
-    buf += ansi_move_cursor_col(buf, 43);
-    if (ux_report.is_setlist_mode) {
-        buf += sprintf(buf, "%3d/%3d", ux_report.sl_val, ux_report.sl_max);
-    } else {
-        buf += sprintf(buf, "%3d/%3d", ux_report.pr_val, ux_report.pr_max);
-    }
+    if (!dd_song.is_open) {
+        // Show song/program index:
+        buf += ansi_move_cursor_col(buf, 43);
+        if (ux_report.is_setlist_mode) {
+            buf += sprintf(buf, "%3d/%3d", ux_report.sl_val, ux_report.sl_max);
+        } else {
+            buf += sprintf(buf, "%3d/%3d", ux_report.pr_val, ux_report.pr_max);
+        }
 
-    // Show second status line:
-    buf += ansi_move_cursor(buf, 1, 49 - 18);
-    buf += sprintf(buf, "%3dbpm Scene: %2d/%2d", ux_report.tempo, ux_report.sc_val, ux_report.sc_max);
+        // Show second status line:
+        buf += ansi_move_cursor(buf, 1, 49 - 18);
+        buf += sprintf(buf, "%3dbpm Scene: %2d/%2d", ux_report.tempo, ux_report.sc_val, ux_report.sc_max);
 
 #define AMP_UX_ROWS 6
 
-    // Render each amp dialog:
-    for (int a = 0; a < 2; a++) {
-        int row = 2 + (a * AMP_UX_ROWS);
-        struct amp_report amp = ux_report.amp[a];
+        // Render each amp dialog:
+        for (int a = 0; a < 2; a++) {
+            int row = 2 + (a * AMP_UX_ROWS);
+            struct amp_report amp = ux_report.amp[a];
 
-        // Draw horizontal slider box for volume:
-        buf += ansi_move_cursor(buf, row, 0);
-        buf += sprintf(buf, "Volume: %3d", amp.volume);
-        buf = ux_hslider_draw(buf, row, 12, 32, amp.volume + 1, 128);
+            // Draw horizontal slider box for volume:
+            buf += ansi_move_cursor(buf, row, 0);
+            buf += sprintf(buf, "Volume: %3d", amp.volume);
+            buf = ux_hslider_draw(buf, row, 12, 32, amp.volume + 1, 128);
 
-        // Draw horizontal slider box for gain:
-        ++row;
-        buf += ansi_move_cursor(buf, row, 0);
-        buf += sprintf(buf, "Gain:   %3d", amp.gain_dirty);
-        buf = ux_hslider_draw(buf, row, 12, 32, amp.gain_dirty + 1, 128);
+            // Draw horizontal slider box for gain:
+            ++row;
+            buf += ansi_move_cursor(buf, row, 0);
+            buf += sprintf(buf, "Gain:   %3d", amp.gain_dirty);
+            buf = ux_hslider_draw(buf, row, 12, 32, amp.gain_dirty + 1, 128);
 
-        ++row;
-        buf += ansi_move_cursor(buf, row, 0);
-        ++row;
-        buf += ansi_move_cursor(buf, row, 0);
-        ++row;
-        buf += ansi_move_cursor(buf, row, 0);
-        ++row;
-        buf += ansi_move_cursor(buf, row, 0);
-    }
-
-    ///////////////////////////////////////////////////////////////////////
-
-    if (dd_song.is_open) {
+            ++row;
+            buf += ansi_move_cursor(buf, row, 0);
+            ++row;
+            buf += ansi_move_cursor(buf, row, 0);
+            ++row;
+            buf += ansi_move_cursor(buf, row, 0);
+            ++row;
+            buf += ansi_move_cursor(buf, row, 0);
+        }
+    } else {
         // Render drop-down list on top:
         for (int i = 0; i < dd_song.rows; i++) {
             char name[REPORT_PR_NAME_LEN];
