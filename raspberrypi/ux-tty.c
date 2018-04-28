@@ -17,8 +17,8 @@
 
 #include "ux.h"
 
-#define tty0 "/dev/tty0"
-//#define tty0 "/dev/stdout"
+//#define tty0 "/dev/tty0"
+#define tty0 "/dev/stdout"
 
 #define ts_input "/dev/input/event1"
 #define ts_device_name "FT5406 memory based driver"
@@ -559,8 +559,8 @@ void ux_draw(void) {
             buf += sprintf(buf, "Volume: %3d", amp.volume);
             buf = ux_hslider_draw(buf, row, 12, 32, amp.volume + 1, 128);
             if (ts_touching && (ts_row == row) && (ts_col >= 12) && (ts_col <= 12 + 32)) {
-                u8 new_volume = (u8)(ts_col - 12) * (u8)(128 / 32);
-                volume_set(a, new_volume);
+                int new_volume = min(127, max(0, (ts_col - 12) * (128 / 32) - 1));
+                volume_set(a, (u8)new_volume);
             }
 
             // Draw horizontal slider box for gain:
@@ -569,8 +569,8 @@ void ux_draw(void) {
             buf += sprintf(buf, "Gain:   %3d", amp.gain_dirty);
             buf = ux_hslider_draw(buf, row, 12, 32, amp.gain_dirty + 1, 128);
             if (ts_touching && (ts_row == row) && (ts_col >= 12) && (ts_col <= 12 + 32)) {
-                u8 new_gain = (u8)(ts_col - 12) * (u8)(128 / 32);
-                gain_set(a, new_gain);
+                int new_gain = min(127, max(0, (ts_col - 12) * (128 / 32) - 1));
+                gain_set(a, (u8)new_gain);
             }
 
             ++row;
