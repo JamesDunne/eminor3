@@ -435,6 +435,7 @@ void ux_draw(void) {
     char *buf = out;
 
     static bool last_ts_touching = false;
+    static int touched_component = -1;
 
     static struct dd_state dd_song = {
             is_open: false,
@@ -443,6 +444,8 @@ void ux_draw(void) {
 
     bool ts_pressed = !last_ts_touching && ts_touching;
     bool ts_released = last_ts_touching && !ts_touching;
+
+    int component = 0;
 
     // Show program name at top as a drop-down menu:
     // Tap to drop-down song list:
@@ -530,9 +533,19 @@ void ux_draw(void) {
     buf += sprintf(buf, "(%s)", ux_report.is_setlist_mode ? "SETLIST" : "PROGRAM");
 
     // Toggle setlist/program mode on first press:
-    if (ts_pressed && (ts_row == 0) && (ts_col >= 31 && ts_col <= 39)) {
-        toggle_setlist_mode();
+    if ((ts_row == 0) && (ts_col >= 31 && ts_col <= 39)) {
+        if ((touched_component == -1) && ts_pressed) {
+            touched_component = component;
+        }
+        if (touched_component == component) {
+            if (ts_pressed) {
+                toggle_setlist_mode();
+            } else if (ts_released) {
+                touched_component = -1;
+            }
+        }
     }
+    component++;
 
     if (!dd_song.is_open) {
         // Show song/program index:
@@ -558,20 +571,40 @@ void ux_draw(void) {
             buf += ansi_move_cursor(buf, row, 0);
             buf += sprintf(buf, "Volume: %3d", amp.volume);
             buf = ux_hslider_draw(buf, row, 12, 32, amp.volume + 1, 128);
-            if (ts_touching && (ts_row == row) && (ts_col >= 12) && (ts_col <= 12 + 32)) {
-                int new_volume = min(127, max(0, (ts_col - 12) * (128 / 32) - 1));
-                volume_set(a, (u8)new_volume);
+            if ((ts_col >= 12) && (ts_col <= 12 + 32)) {
+                if ((touched_component == -1) && ts_pressed && (ts_row == row)) {
+                    touched_component = component;
+                }
+                if (touched_component == component) {
+                    if (ts_touching) {
+                        int new_volume = min(127, max(0, (ts_col - 12) * (128 / 32)));
+                        volume_set(a, (u8) new_volume);
+                    } else if (ts_released) {
+                        touched_component = -1;
+                    }
+                }
             }
+            component++;
 
             // Draw horizontal slider box for gain:
             ++row;
             buf += ansi_move_cursor(buf, row, 0);
             buf += sprintf(buf, "Gain:   %3d", amp.gain_dirty);
             buf = ux_hslider_draw(buf, row, 12, 32, amp.gain_dirty + 1, 128);
-            if (ts_touching && (ts_row == row) && (ts_col >= 12) && (ts_col <= 12 + 32)) {
-                int new_gain = min(127, max(0, (ts_col - 12) * (128 / 32) - 1));
-                gain_set(a, (u8)new_gain);
+            if ((ts_col >= 12) && (ts_col <= 12 + 32)) {
+                if ((touched_component == -1) && ts_pressed && (ts_row == row)) {
+                    touched_component = component;
+                }
+                if (touched_component == component) {
+                    if (ts_touching) {
+                        int new_gain = min(127, max(0, (ts_col - 12) * (128 / 32)));
+                        gain_set(a, (u8) new_gain);
+                    } else if (ts_released) {
+                        touched_component = -1;
+                    }
+                }
             }
+            component++;
 
             ++row;
             buf += ansi_move_cursor(buf, row, 0);
