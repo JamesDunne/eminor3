@@ -239,6 +239,10 @@ void prev_song(void);
 
 void next_song(void);
 
+void gain_set(int amp, u8 new_gain);
+
+void volume_set(int amp, u8 new_volume);
+
 void midi_invalidate(void);
 
 void toggle_setlist_mode(void);
@@ -955,34 +959,6 @@ void midi_invalidate() {
     last_amp[1].gate = 0x40;
 }
 
-void next_song() {
-    if (curr.setlist_mode == 0) {
-        if (curr.pr_idx < 127) {
-            DEBUG_LOG0("next program");
-            curr.pr_idx++;
-        }
-    } else {
-        if (curr.sl_idx < sl_max) {
-            DEBUG_LOG0("next song");
-            curr.sl_idx++;
-        }
-    }
-}
-
-void prev_song() {
-    if (curr.setlist_mode == 0) {
-        if (curr.pr_idx > 0) {
-            DEBUG_LOG0("prev program");
-            curr.pr_idx--;
-        }
-    } else {
-        if (curr.sl_idx > 0) {
-            DEBUG_LOG0("prev song");
-            curr.sl_idx--;
-        }
-    }
-}
-
 void prev_scene() {
     if (curr.sc_idx > 0) {
         DEBUG_LOG0("prev scene");
@@ -1002,6 +978,60 @@ void next_scene() {
 void reset_scene() {
     DEBUG_LOG0("reset scene");
     curr.sc_idx = 0;
+}
+
+void prev_song() {
+    if (curr.setlist_mode == 0) {
+        if (curr.pr_idx > 0) {
+            DEBUG_LOG0("prev program");
+            curr.pr_idx--;
+        }
+    } else {
+        if (curr.sl_idx > 0) {
+            DEBUG_LOG0("prev song");
+            curr.sl_idx--;
+        }
+    }
+}
+
+void next_song() {
+    if (curr.setlist_mode == 0) {
+        if (curr.pr_idx < 127) {
+            DEBUG_LOG0("next program");
+            curr.pr_idx++;
+        }
+    } else {
+        if (curr.sl_idx < sl_max) {
+            DEBUG_LOG0("next song");
+            curr.sl_idx++;
+        }
+    }
+}
+
+void gain_set(int amp, u8 new_gain) {
+    // Determine which gain variable to adjust:
+    u8 *gain;
+    if ((curr.amp[amp].fx & (fxm_dirty | fxm_acoustc)) == fxm_dirty) {
+        if (curr.amp[amp].gain != 0) {
+            gain = &curr.amp[amp].gain;
+        } else {
+            gain = &pr.default_gain[amp];
+        }
+    } else {
+        gain = &last_amp[amp].clean_gain;
+    }
+
+    if ((*gain) != new_gain) {
+        (*gain) = new_gain;
+        calc_gain_modified();
+    }
+}
+
+void volume_set(int amp, u8 new_volume) {
+    if ((curr.amp[amp].volume) != new_volume) {
+        curr.amp[amp].volume = new_volume;
+        calc_volume_modified();
+    }
 }
 
 // set the controller to an initial state

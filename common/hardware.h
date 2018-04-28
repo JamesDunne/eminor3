@@ -115,6 +115,10 @@ void prev_song(void);
 
 void next_song(void);
 
+void gain_set(int amp, u8 new_gain);
+
+void volume_set(int amp, u8 new_volume);
+
 void activate_program(int pr_idx);
 
 void activate_song(int sl_idx);
