@@ -963,6 +963,8 @@ void prev_scene() {
     if (curr.sc_idx > 0) {
         DEBUG_LOG0("prev scene");
         curr.sc_idx--;
+    } else {
+        prev_song();
     }
 }
 
