@@ -811,10 +811,10 @@ void load_program(void) {
     u16 addr;
     u8 pr_num;
 
-    if (curr.setlist_mode == 1) {
-        pr_num = sl.entries[curr.sl_idx].program;
-    } else {
+    if (curr.setlist_mode == 0) {
         pr_num = curr.pr_idx;
+    } else {
+        pr_num = sl.entries[curr.sl_idx].program;
     }
 
     DEBUG_LOG1("load program %d", pr_num + 1);

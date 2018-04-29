@@ -659,7 +659,7 @@ void ux_draw(void) {
     // Move cursor to last touchscreen row,col:
     buf += ansi_move_cursor(buf, ts_row, ts_col);
 
-    fprintf(stderr, "%lu\n", buf - out);
+    //fprintf(stderr, "%lu\n", buf - out);
 
     // Send update to tty in one write call to reduce lag/tear:
     write(tty_fd, out, buf - out);
