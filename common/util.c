@@ -1,8 +1,7 @@
 #include "util.h"
 #include "hardware.h"
 
-#pragma romdata hex
-rom const char hex[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+const char hex[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
 void hextoa(char *dst, u8 col, u8 n) {
     dst += col;
@@ -134,7 +133,7 @@ void print_half(char *dst, u8 col, s8 volhalfdb) {
 }
 #endif
 
-rom const char *fx_name(u8 fx_midi_cc) {
+const char *fx_name(u8 fx_midi_cc) {
     if (fx_midi_cc < 41) {
         return "    ";
     } else if (fx_midi_cc > 98) {

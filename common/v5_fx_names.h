@@ -1,5 +1,4 @@
-#pragma romdata fx_names
-rom const char v5_fx_names[58][4] = {
+const char v5_fx_names[58][4] = {
  "Cho1"  // 41
 ,"Cho2"  // 42
 ,"Cmp1"  // 43

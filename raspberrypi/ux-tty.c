@@ -14,6 +14,7 @@
 
 #include "types.h"
 #include "hardware.h"
+#include "util.h"
 
 #include "ux.h"
 
@@ -471,7 +472,7 @@ void ux_draw(void) {
 
 #ifdef HWFEAT_REPORT
     // Prefer report feature for rendering a UX:
-    char out[1500] = "";
+    char out[2500] = "";
     char *buf = out;
 
     ts_pressed = !last_ts_touching && ts_touching;
@@ -621,7 +622,17 @@ void ux_draw(void) {
             component++;
 
             ++row;
-            buf += ansi_move_cursor(buf, row, 0);
+            for (int fx = 0; fx < FX_COUNT; fx++) {
+                if (amp.fx_enabled[fx]) {
+                    buf += sprintf(buf, ANSI_CSI"7m");
+                }
+                const char *fxName = fx_name(amp.fx_midi_cc[fx]);
+                buf += ansi_move_cursor(buf, row, fx * (5+4));
+                buf += sprintf(buf, "[ %.4s ]", fxName);
+                if (amp.fx_enabled[fx]) {
+                    buf += sprintf(buf, ANSI_CSI"0m");
+                }
+            }
             ++row;
             buf += ansi_move_cursor(buf, row, 0);
             ++row;
