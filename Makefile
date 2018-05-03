@@ -16,24 +16,26 @@ BASE=common/controller-data.c \
      raspberrypi/midi.h \
      raspberrypi/flash.c \
      raspberrypi/lcd.c \
+     raspberrypi/ux-tty.c \
      raspberrypi/main.c
 
-PI3=$(BASE) raspberrypi/midi.c \
-            raspberrypi/fsw-usb.c \
-            raspberrypi/ux-tty.c
+PI3=$(BASE) \
+    raspberrypi/midi.c \
+    raspberrypi/fsw-usb.c
 PI3_OBJS=$(filter-out %.h,$(patsubst %.c,build-pi/%.o,$(PI3)))
 PI3_CC="/Volumes/xtools/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-gcc"
-PI3_CFLAGS=-Icommon -Iraspberrypi
+PI3_CFLAGS=-DHWFEAT_REPORT -Icommon -Iraspberrypi
 
-DARWIN=$(BASE) null/midi.c
-DARWIN_OBJS=$(filter-out %.h,$($(notdir $(DARWIN)):%.c=build-darwin/%.o))
+DARWIN=$(BASE) \
+       null/midi.c \
+       null/fsw.c
+DARWIN_OBJS=$(filter-out %.h,$(patsubst %.c,build-darwin/%.o,$(DARWIN)))
 DARWIN_CC=$(CC)
-DARWIN_CFLAGS=-Icommon -Iraspberrypi
+DARWIN_CFLAGS=-DHWFEAT_REPORT -Icommon -Iraspberrypi -Inull
 
 all: build-pi/eminor3
 
 build-pi/eminor3: $(PI3_OBJS)
-	echo $(PI3_OBJS)
 	$(PI3_CC) $(PI3_OBJS) -o build-pi/eminor3
 
 build-pi/%.o: %.c
@@ -44,5 +46,5 @@ build-darwin/eminor3: $(DARWIN_OBJS)
 	$(CC) $(DARWIN_OBJS) -o build-darwin/eminor3
 
 build-darwin/%.o: %.c
-	@mkdir -p build-darwin
+	@mkdir -p $(@D)
 	$(DARWIN_CC) $(DARWIN_CFLAGS) -c $< -o $@
