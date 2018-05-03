@@ -17,12 +17,10 @@
 #include "util.h"
 
 #include "ux.h"
+#include "ts-input.h"
 
 //#define tty0 "/dev/tty0"
 #define tty0 "/dev/stdout"
-
-#define ts_input "/dev/input/event1"
-#define ts_device_name "FT5406 memory based driver"
 
 #define ANSI_RIS "\033c"
 #define ANSI_CSI "\033["
@@ -39,17 +37,15 @@ struct winsize tty_win;
 struct termios saved_attributes;
 
 // Touchscreen input:
-int ts_fd = -1;
+int ux_ts_x_min;
+int ux_ts_x_max;
 
-int ts_x_min;
-int ts_x_max;
-
-int ts_y_min;
-int ts_y_max;
+int ux_ts_y_min;
+int ux_ts_y_max;
 
 bool ts_touching = false;
-int ts_x, ts_col;
-int ts_y, ts_row;
+int ts_col;
+int ts_row;
 
 bool ux_redraw = true;
 
@@ -105,118 +101,29 @@ int tty_init(void) {
     return 0;
 }
 
-#define BITS_PER_LONG (sizeof(long) * 8)
-#define NBITS(x) ((((x)-1)/BITS_PER_LONG)+1)
-#define OFF(x)  ((x)%BITS_PER_LONG)
-#define BIT(x)  (1UL<<OFF(x))
-#define LONG(x) ((x)/BITS_PER_LONG)
-#define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
-
-// Initialize touchscreen input:
-int ts_init(void) {
-    char name[256] = "Unknown";
-    unsigned long bit[EV_MAX][NBITS(KEY_MAX)];
-    unsigned int type, code;
-    int abs[6] = {0};
-
-    // Open touchscreen device:
-    // TODO: might not always be event1
-    if ((ts_fd = open(ts_input, O_RDONLY | O_NONBLOCK)) < 0) {
-        perror("open(" ts_input ")");
-        return 8;
-    }
-
-    // Get device name:
-    ioctl(ts_fd, EVIOCGNAME(sizeof(name)), name);
-    fprintf(stderr, "TS device name: %s\n", name);
-
-    // Verify our expectations:
-    if (strncmp(ts_device_name, name, 256) != 0) {
-        fprintf(stderr, "TS device name does not match expected: \"" ts_device_name "\"");
-        return 9;
-    }
-
-    // Get absolute coordinate bounds for device:
-    memset(bit, 0, sizeof(bit));
-    ioctl(ts_fd, EVIOCGBIT(0, EV_MAX), bit[0]);
-
-    if (!test_bit(EV_ABS, bit[0])) {
-        fprintf(stderr, "TS device does not support EV_ABS events!\n");
-        return 10;
-    }
-
-    // Fetch EV_ABS bits:
-    ioctl(ts_fd, EVIOCGBIT(EV_ABS, KEY_MAX), bit[EV_ABS]);
-
-    // Read X,Y bounds:
-    if (!test_bit(ABS_MT_POSITION_X, bit[EV_ABS])) {
-        fprintf(stderr, "TS device does not support ABS_MT_POSITION_X!\n");
-    }
-    ioctl(ts_fd, EVIOCGABS(ABS_MT_POSITION_X), abs);
-    ts_x_min = abs[1];
-    ts_x_max = abs[2];
-
-    if (!test_bit(ABS_MT_POSITION_Y, bit[EV_ABS])) {
-        fprintf(stderr, "TS device does not support ABS_MT_POSITION_Y!\n");
-    }
-    ioctl(ts_fd, EVIOCGABS(ABS_MT_POSITION_Y), abs);
-    ts_y_min = abs[1];
-    ts_y_max = abs[2];
-
-    fprintf(stderr, "TS bounds: X: [%d, %d]; Y: [%d, %d]\n", ts_x_min, ts_x_max, ts_y_min, ts_y_max);
-
-    return 0;
-}
-
-bool ts_handle_input_event(struct input_event *ev);
-
 bool mouse_poll();
 
 int max(int a, int b);
 
 int min(int a, int b);
 
-bool ts_handle_input_event(struct input_event *ev) {
-    bool changed;
-    switch ((*ev).code) {
-        case ABS_MT_POSITION_X:
-            ts_x = (*ev).value;
-            ts_col = ((*ev).value - ts_x_min) / ((ts_x_max - ts_x_min) / tty_win.ws_col);
-            changed = true;
-            break;
-        case ABS_MT_POSITION_Y:
-            ts_y = (*ev).value;
-            ts_row = ((*ev).value - ts_y_min) / ((ts_y_max - ts_y_min) / tty_win.ws_row);
-            changed = true;
-            break;
-        case ABS_MT_TRACKING_ID:
-            ts_touching = ((*ev).value != -1);
-            changed = true;
-            break;
-        default:
-            break;
-    }
-    return changed;
+void ux_ts_update_extents(int x_min, int x_max, int y_min, int y_max) {
+    ux_ts_x_min = x_min;
+    ux_ts_x_max = x_max;
+    ux_ts_y_min = y_min;
+    ux_ts_y_max = y_max;
 }
 
-bool ts_poll(void) {
-    bool changed = false;
-    struct input_event ev;
-    size_t size = sizeof(struct input_event);
+void ux_ts_update_row(int y) {
+    ts_row = (y - ux_ts_y_min) / ((ux_ts_y_max - ux_ts_y_min) / tty_win.ws_row);
+}
 
-    while (read(ts_fd, &ev, size) == size) {
-        if (ev.type != EV_ABS) continue;
+void ux_ts_update_col(int x) {
+    ts_col = (x - ux_ts_x_min) / ((ux_ts_x_max - ux_ts_x_min) / tty_win.ws_col);
+}
 
-        changed = ts_handle_input_event(&ev);
-    }
-
-#if 1
-    if (changed) {
-        fprintf(stderr, "TS (%d, %d)\n", ts_row, ts_col);
-    }
-#endif
-
-    return changed;
+void ux_ts_update_touching(bool touching) {
+    ts_touching = touching;
 }
 
 // Shutdown UX, close files, and restore sane tty:
@@ -229,7 +136,8 @@ void ux_shutdown() {
     reset_input_mode();
 
     close(tty_fd);
-    close(ts_fd);
+
+    ts_shutdown();
 }
 
 void ux_shutdown_signal(int signal) {
@@ -297,19 +205,10 @@ bool mouse_poll() {
         fprintf(stderr, "MOUSE: b=%d x=%d y=%d\n", (int) b, (int) x, (int) y);
 
         // generate input_events for touchscreen compatibility:
-        struct input_event ev;
-        ev.type = EV_ABS;
-        ev.code = ABS_MT_TRACKING_ID;
-        ev.value = (b & 3) != 3 ? 1 : -1; // pressed = 1 vs. released = -1
-        changed |= ts_handle_input_event(&ev);
-
-        ev.code = ABS_MT_POSITION_X;
-        ev.value = (x - 1) * (ts_x_max - ts_x_min) / (tty_win.ws_col) + ts_x_min;
-        changed |= ts_handle_input_event(&ev);
-
-        ev.code = ABS_MT_POSITION_Y;
-        ev.value = (y - 1) * (ts_y_max - ts_y_min) / (tty_win.ws_row) + ts_y_min;
-        changed |= ts_handle_input_event(&ev);
+        ux_ts_update_touching((b & 3) != 3); // pressed = 1 vs. released = -1
+        ux_ts_update_col((x - 1) * (ux_ts_x_max - ux_ts_x_min) / (tty_win.ws_col) + ux_ts_x_min);
+        ux_ts_update_row((y - 1) * (ux_ts_y_max - ux_ts_y_min) / (tty_win.ws_row) + ux_ts_y_min);
+        changed = true;
     }
 
     return changed;

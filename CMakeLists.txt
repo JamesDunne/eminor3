@@ -30,7 +30,9 @@ add_executable(eminor3
         raspberrypi/main.c
         raspberrypi/midi.c
         raspberrypi/fsw-usb.c
-        raspberrypi/ux-tty.c)
+        raspberrypi/ux-tty.c
+        raspberrypi/ts-input.c
+        raspberrypi/ts-input.h)
 
 find_program(SCP_EXECUTABLE scp)
 if(SCP_EXECUTABLE)
