@@ -36,7 +36,6 @@ uart-out.txt
 cmake-build-debug/
 CMakeCache.txt
 CMakeFiles/
-Makefile
 cmake_install.cmake
 eminor3
 raspberrypi/rpi1b
