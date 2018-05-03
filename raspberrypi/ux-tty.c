@@ -53,8 +53,9 @@ int ts_y, ts_row;
 
 bool ux_redraw = true;
 
+#ifdef HWFEAT_REPORT
 struct report ux_report;
-
+#endif
 
 // Resets tty0 to initial state on exit:
 void reset_input_mode(void) {
@@ -332,10 +333,12 @@ void ux_notify_redraw(void) {
     ux_redraw = true;
 }
 
+#ifdef HWFEAT_REPORT
 // Hand back the global variable location to write reports to:
 struct report *report_target(void) {
     return &ux_report;
 }
+#endif
 
 // When a new report is ready, redraw the UX:
 void report_notify(void) {
