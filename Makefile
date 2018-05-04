@@ -21,7 +21,9 @@ BASE=common/controller-data.c \
 
 PI3=$(BASE) \
     raspberrypi/midi.c \
-    raspberrypi/fsw-usb.c
+    raspberrypi/fsw-usb.c \
+    raspberrypi/ts-input.h \
+    raspberrypi/ts-input.c
 PI3_OBJS=$(filter-out %.h,$(patsubst %.c,build-pi/%.o,$(PI3)))
 PI3_CC="/Volumes/xtools/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-gcc"
 PI3_CFLAGS=-DHWFEAT_REPORT -Icommon -Iraspberrypi
