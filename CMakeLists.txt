@@ -6,7 +6,7 @@ set(CMAKE_C_STANDARD 11)
 include_directories(common)
 include_directories(raspberrypi)
 
-add_definitions(-DHWFEAT_REPORT)
+add_definitions(-DHWFEAT_REPORT -DHWFEAT_TOUCHSCREEN)
 
 add_executable(eminor3
         common/controller-data.c

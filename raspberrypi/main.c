@@ -43,8 +43,6 @@ void debug_log(const char *fmt, ...) {
 // Main function:
 int main(void) {
     int retval;
-    int tty_fd;
-    struct winsize win;
     struct timespec t;
 
     t.tv_sec  = 0;

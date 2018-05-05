@@ -135,7 +135,9 @@ void ux_shutdown() {
 
     close(tty_fd);
 
+#ifdef HWFEAT_TOUCHSCREEN
     ts_shutdown();
+#endif
 }
 
 void ux_shutdown_signal(int signal) {
@@ -156,9 +158,11 @@ int ux_init(void) {
         return retval;
     }
 
+#ifdef HWFEAT_TOUCHSCREEN
     if ((retval = ts_init())) {
         return retval;
     }
+#endif
 
     // set stdin to non-blocking so we can read mouse events:
     fcntl(0, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
@@ -213,9 +217,14 @@ bool mouse_poll() {
 }
 
 bool ux_poll(void) {
-    // Poll for touchscreen input:
-    bool changed = ts_poll();
+    bool changed = false;
 
+#ifdef HWFEAT_TOUCHSCREEN
+    // Poll for touchscreen input:
+    changed |= ts_poll();
+#endif
+
+    // Poll for xterm mouse input:
     changed |= mouse_poll();
 
     // Register a redraw if touchscreen input changed:
