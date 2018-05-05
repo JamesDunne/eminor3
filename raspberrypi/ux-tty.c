@@ -584,6 +584,10 @@ void ux_draw(void) {
     // Send update to tty in one write call to reduce lag/tear:
     write(tty_fd, out, buf - out);
 
+    // Clear touched component after release:
+    if (ts_released && (touched_component != -1)) {
+        touched_component = -1;
+    }
     last_ts_touching = ts_touching;
 #else
 # ifdef FEAT_LCD
