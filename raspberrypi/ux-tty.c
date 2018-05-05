@@ -96,6 +96,8 @@ int tty_init(void) {
     // Clear screen:
     write(tty_fd, ANSI_RIS, 2);
 
+    ux_ts_update_extents(0, tty_win.ws_col, 0, tty_win.ws_row);
+
     return 0;
 }
 
