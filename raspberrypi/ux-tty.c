@@ -5,11 +5,9 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include <linux/input.h>
 #include <termios.h>
 #include <ctype.h>
 #include <stdbool.h>
-#include <bits/signum.h>
 #include <signal.h>
 
 #include "types.h"
@@ -336,14 +334,19 @@ static struct dd_state dd_song = {
 static bool ts_pressed = false;
 static bool ts_released = false;
 
-void component_pressed_action(int component, int row, int col_min, int col_max, void (*action)(void)) {
+void do_callback(void *state) {
+    void (*callback)(void) = state;
+    callback();
+}
+
+void component_pressed_action(int component, int row, int col_min, int col_max, void *state, void (*action)(void *state)) {
     if ((ts_row == row) && (ts_col >= col_min && ts_col <= col_max)) {
         if ((touched_component == -1) && ts_pressed) {
             touched_component = component;
         }
         if (touched_component == component) {
             if (ts_pressed) {
-                action();
+                action(state);
             } else if (ts_released) {
                 touched_component = -1;
             }
@@ -351,19 +354,31 @@ void component_pressed_action(int component, int row, int col_min, int col_max, 
     }
 }
 
-void component_touching_action(int component, int row, int col_min, int width, void (*action)(void)) {
+void component_touching_action(int component, int row, int col_min, int width, void *state, void (*action)(void *state)) {
     if ((ts_col >= col_min) && (ts_col <= col_min + width)) {
         if ((touched_component == -1) && ts_pressed && (ts_row == row)) {
             touched_component = component;
         }
         if (touched_component == component) {
             if (ts_touching) {
-                action();
+                action(state);
             } else if (ts_released) {
                 touched_component = -1;
             }
         }
     }
+}
+
+void volume_slider_touching(void *state) {
+    int a = (int)state;
+    int new_volume = min(127, max(0, (ts_col - 12) * (128 / 32)));
+    volume_set(a, (u8) new_volume);
+}
+
+void gain_slider_touching(void *state) {
+    int a = (int)state;
+    int new_gain = min(127, max(0, (ts_col - 12) * (128 / 32)));
+    gain_set(a, (u8) new_gain);
 }
 
 // Draw UX screen:
@@ -468,7 +483,7 @@ void ux_draw(void) {
     buf += sprintf(buf, "(%s)", ux_report.is_setlist_mode ? "SETLIST" : "PROGRAM");
 
     // Toggle setlist/program mode on first press:
-    component_pressed_action(component, 0, 31, 39, toggle_setlist_mode);
+    component_pressed_action(component, 0, 31, 39, toggle_setlist_mode, do_callback);
     component++;
 
     if (!dd_song.is_open) {
@@ -485,9 +500,9 @@ void ux_draw(void) {
         buf += sprintf(buf, "Scene: %2d/%2d", ux_report.sc_val, ux_report.sc_max);
         buf += ansi_move_cursor(buf, 1, 13);
         buf += sprintf(buf, "(PREV) (NEXT)");
-        component_pressed_action(component, 1, 13, 19, prev_scene);
+        component_pressed_action(component, 1, 13, 19, prev_scene, do_callback);
         component++;
-        component_pressed_action(component, 1, 21, 26, next_scene);
+        component_pressed_action(component, 1, 21, 26, next_scene, do_callback);
         component++;
 
         buf += ansi_move_cursor(buf, 1, 49 - 18);
@@ -504,11 +519,7 @@ void ux_draw(void) {
             buf += ansi_move_cursor(buf, row, 0);
             buf += sprintf(buf, "Volume: %3d", amp.volume);
             buf = ux_hslider_draw(buf, row, 12, 32, amp.volume + 1, 128);
-            void volume_slider_touching(void) {
-                int new_volume = min(127, max(0, (ts_col - 12) * (128 / 32)));
-                volume_set(a, (u8) new_volume);
-            }
-            component_touching_action(component, row, 12, 32, volume_slider_touching);
+            component_touching_action(component, row, 12, 32, (void *)a, volume_slider_touching);
             component++;
 
             // Draw horizontal slider box for gain:
@@ -516,11 +527,7 @@ void ux_draw(void) {
             buf += ansi_move_cursor(buf, row, 0);
             buf += sprintf(buf, "Gain:   %3d", amp.gain_dirty);
             buf = ux_hslider_draw(buf, row, 12, 32, amp.gain_dirty + 1, 128);
-            void gain_slider_touching(void) {
-                int new_gain = min(127, max(0, (ts_col - 12) * (128 / 32)));
-                gain_set(a, (u8) new_gain);
-            }
-            component_touching_action(component, row, 12, 32, gain_slider_touching);
+            component_touching_action(component, row, 12, 32, (void *)a, gain_slider_touching);
             component++;
 
             ++row;
