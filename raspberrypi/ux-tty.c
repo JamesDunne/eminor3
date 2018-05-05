@@ -184,7 +184,7 @@ int ux_init(void) {
 bool mouse_poll() {
     bool changed = false;
     // `ESC` `[` `M` bxy
-    char buf[7];
+    char buf[9];
     size_t size = 7u;
     ssize_t n;
 
@@ -202,9 +202,9 @@ bool mouse_poll() {
         if (esc[1] != '[') continue;
         if (esc[2] != 'M') continue;
         // b encodes what mouse button was pressed or released combined with keyboard modifiers.
-        char b = esc[3] - (char) 0x20;
-        char x = esc[4] - (char) 0x20;
-        char y = esc[5] - (char) 0x20;
+        unsigned char b = (unsigned char) esc[3] - (unsigned char) 0x20;
+        unsigned char x = (unsigned char) esc[4] - (unsigned char) 0x20;
+        unsigned char y = (unsigned char) esc[5] - (unsigned char) 0x20;
 
         fprintf(stderr, "MOUSE: b=%d x=%d y=%d\n", (int) b, (int) x, (int) y);
 
