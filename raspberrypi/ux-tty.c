@@ -185,7 +185,7 @@ bool mouse_poll() {
     bool changed = false;
     // `ESC` `[` `M` bxy
     char buf[9];
-    size_t size = 7u;
+    size_t size = 6u;
     ssize_t n;
 
     // read mouse events from stdin:
@@ -195,7 +195,7 @@ bool mouse_poll() {
 
         // NOTE: assume we have the full mouse report message in `buf` and that it doesn't cross into the next buffer.
         if (esc + 6 > buf + n) {
-            fprintf(stderr, "buffer not large enough to contain full mouse report!\n");
+            fprintf(stderr, "read too much for mouse report\n");
             continue;
         }
 
