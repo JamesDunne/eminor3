@@ -302,7 +302,7 @@ struct dd_state {
     bool (*list_item)(int i, char *name);
 };
 
-int dd_set_offset(struct dd_state *dd, int i) {
+void dd_set_offset(struct dd_state *dd, int i) {
     dd->list_offset = min(max(0, i), max(0, dd->list_count - dd->rows + 1));
 }
 
@@ -337,8 +337,8 @@ static bool last_ts_touching = false;
 static int touched_component = -1;
 
 static struct dd_state dd_song = {
-        is_open: false,
-        rows: 14,
+    .is_open = false,
+    .rows = 14,
 };
 static bool ts_pressed = false;
 static bool ts_released = false;

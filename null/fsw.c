@@ -10,6 +10,7 @@ u16 fsw_poll(void) {
 }
 
 int led_init(void) {
+    return 0;
 }
 
 // Set 16 LED states:
