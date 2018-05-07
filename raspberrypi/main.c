@@ -46,7 +46,7 @@ int main(void) {
     struct timespec t;
 
     t.tv_sec  = 0;
-    t.tv_nsec = 10L * 1000000L;  // 10 ms
+    t.tv_nsec = 1L * 1000000L;  // 1 ms
 
     if ((retval = midi_init())) {
         return retval;
@@ -68,7 +68,7 @@ int main(void) {
     controller_init();
 
     while (1) {
-        // Sleep for 10ms:
+        // Sleep:
         while (nanosleep(&t, &t));
 
         // Run timer handler:

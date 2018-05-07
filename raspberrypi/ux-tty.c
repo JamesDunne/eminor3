@@ -184,29 +184,27 @@ int ux_init(void) {
 bool mouse_poll() {
     bool changed = false;
     // `ESC` `[` `M` bxy
-    char buf[9];
-    size_t size = 6u;
+    char buf[6];
     ssize_t n;
 
     // read mouse events from stdin:
-    while ((n = read(STDIN_FILENO, buf, size)) > 0) {
-        char *esc = strchr(buf, '\033');
-        if (esc == NULL) continue;
+    while ((n = read(STDIN_FILENO, buf, 1)) == 1) {
+        if (buf[0] != '\033') continue;
 
-        // NOTE: assume we have the full mouse report message in `buf` and that it doesn't cross into the next buffer.
-        if (esc + 6 > buf + n) {
-            fprintf(stderr, "read too much for mouse report\n");
+        n = read(STDIN_FILENO, buf, 5);
+        if (n != 5) {
+            fprintf(stderr, "Not enough bytes to complete mouse report from read\n");
             continue;
         }
 
-        if (esc[1] != '[') continue;
-        if (esc[2] != 'M') continue;
+        if (buf[0] != '[') continue;
+        if (buf[1] != 'M') continue;
         // b encodes what mouse button was pressed or released combined with keyboard modifiers.
-        unsigned char b = (unsigned char) esc[3] - (unsigned char) 0x20;
-        unsigned char x = (unsigned char) esc[4] - (unsigned char) 0x20;
-        unsigned char y = (unsigned char) esc[5] - (unsigned char) 0x20;
+        unsigned char b = (unsigned char) buf[2] - (unsigned char) 0x20;
+        unsigned char x = (unsigned char) buf[3] - (unsigned char) 0x20;
+        unsigned char y = (unsigned char) buf[4] - (unsigned char) 0x20;
 
-        fprintf(stderr, "MOUSE: b=%d x=%d y=%d\n", (int) b, (int) x, (int) y);
+        //fprintf(stderr, "MOUSE: b=%d x=%d y=%d\n", (int) b, (int) x, (int) y);
 
         // generate input_events for touchscreen compatibility:
         ux_ts_update_touching((b & 3) != 3); // pressed = 1 vs. released = -1
