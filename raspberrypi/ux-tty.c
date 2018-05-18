@@ -16,6 +16,8 @@
 
 #include "ux.h"
 #include "ts-input.h"
+#include "leds.h"
+#include "fsw.h"
 
 //#define tty0 "/dev/tty0"
 #define tty0 "/dev/stdout"
@@ -550,6 +552,8 @@ void ux_draw(void) {
                 if (amp.fx_enabled[fx]) {
                     buf += sprintf(buf, ANSI_CSI"0m");
                 }
+                //component_pressed_action(component, row, fx * (5+4), fx * (5+4) + 7, );
+                component++;
             }
             ++row;
             buf += ansi_move_cursor(buf, row, 0);

@@ -22,13 +22,13 @@ int fsw_init(void) {
     fsw_fd = open(fsw_evdev_name, O_RDONLY | O_NONBLOCK);
     if (fsw_fd < 0) {
         perror("open(" fsw_evdev_name ")");
-        return -1;
+        return 0;
     }
 
     // Query repeat rate:
     if (ioctl(fsw_fd, EVIOCGREP, rep) < 0) {
         perror("ioctl EVIOCGREP");
-        return -1;
+        return 0;
     }
 
     // rep = {250, 33}. 250 is ms delay before repeat, 33 is ms repeat period.
@@ -53,6 +53,11 @@ int fsw_init(void) {
 u16 fsw_poll(void) {
     struct input_event ev;
     size_t size = sizeof(struct input_event);
+
+    // Return empty footswitch state if device not opened:
+    if (fsw_fd < 0) {
+        return 0;
+    }
 
     // Clear auto-repeat flags:
     fsw_state &= ~((M_1 | M_2 | M_3) << 8u);

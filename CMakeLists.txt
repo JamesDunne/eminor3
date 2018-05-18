@@ -40,8 +40,9 @@ find_program(SCP_EXECUTABLE scp)
 if(SCP_EXECUTABLE)
     add_custom_target(delivery
             COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
-            COMMAND ${SCP_EXECUTABLE} ${CMAKE_PROJECT_NAME}
-            pi:gopath/src/github.com/JamesDunne/eminor3/)
+            COMMAND ${SCP_EXECUTABLE} eminor3-pi
+            pi:go/src/github.com/JamesDunne/eminor3/)
+    add_dependencies(delivery eminor3-pi)
 else()
     message(SEND_ERROR "Require scp for the delivery target")
 endif()
