@@ -74,13 +74,9 @@ void fsw_poll(void) {
     struct input_event ev;
     size_t size = sizeof(struct input_event);
 
-    // Return empty footswitch state if device not opened:
     if (fsw_fd < 0) {
         return;
     }
-
-    // Clear auto-repeat flags:
-    fsw_state &= ~((M_1 | M_2 | M_3) << 8u);
 
     // Check for event data since last read:
     while (read(fsw_fd, &ev, size) == size) {
@@ -95,34 +91,25 @@ void fsw_poll(void) {
             case 0x1E:
                 // Left:
                 if (ev.value == 0) {
-                    fsw_state &= ~(M_1);
+                    // release:
                 } else if (ev.value == 1) {
-                    fsw_state |= (M_1);
+                    // initial press:
+                    prev_scene();
                 } else if (ev.value == 2) {
                     // auto-repeat:
-                    fsw_state |= (M_1 << 8u);
+                    prev_scene();
                 }
                 break;
             case 0x30:
-                // Middle:
-                if (ev.value == 0) {
-                    fsw_state &= ~(M_2);
-                } else if (ev.value == 1) {
-                    fsw_state |= (M_2);
-                } else if (ev.value == 2) {
-                    // auto-repeat:
-                    fsw_state |= (M_2 << 8u);
-                }
-                break;
-            case 0x2E:
                 // Right:
                 if (ev.value == 0) {
-                    fsw_state &= ~(M_3);
+                    // release:
                 } else if (ev.value == 1) {
-                    fsw_state |= (M_3);
+                    // initial press:
+                    next_scene();
                 } else if (ev.value == 2) {
                     // auto-repeat:
-                    fsw_state |= (M_3 << 8u);
+                    next_scene();
                 }
                 break;
             default:
@@ -130,13 +117,5 @@ void fsw_poll(void) {
         }
     }
 
-    return fsw_state;
-}
-
-int led_init(void) {
-}
-
-// Set 16 LED states:
-void led_set(u16 leds) {
-    (void) leds;
+    return;
 }

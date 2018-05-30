@@ -163,6 +163,10 @@ int ux_init(void) {
         return retval;
     }
 
+    if ((retval = fsw_init())) {
+        return retval;
+    }
+
     // set stdin to non-blocking so we can read mouse events:
     fcntl(0, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
