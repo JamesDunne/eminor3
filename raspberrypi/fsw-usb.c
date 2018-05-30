@@ -11,7 +11,10 @@
 // P:  Vendor=0c45 ProdID=7404 Rev=00.01
 // S:  Manufacturer=PCsensor
 // S:  Product=FootSwitch3-F1.8
-#define fsw_evdev_name "/dev/input/by-id/usb-PCsensor_FootSwitch3-F1.8-event-mouse"
+//#define fsw_evdev_name "/dev/input/by-id/usb-PCsensor_FootSwitch3-F1.8-event-mouse"
+
+// Use iKKEGOL dual or triple footswitch
+#define fsw_evdev_name "/dev/input/by-id/usb-413d_2107-event-mouse"
 
 int fsw_fd = -1;
 u16 fsw_state = 0;
@@ -108,7 +111,7 @@ u16 fsw_poll(void) {
             default:
                 break;
         }
-    };
+    }
 
     return fsw_state;
 }
