@@ -53,13 +53,30 @@ int fsw_init(void) {
     return 0;
 }
 
-u16 fsw_poll(void) {
+int fsw_register(int nfds, fd_set *rfds) {
+    if (fsw_fd < 0) {
+        return nfds;
+    }
+
+    FD_SET(fsw_fd, rfds);
+    if (fsw_fd + 1 >= nfds) { nfds = fsw_fd + 1; }
+    return nfds;
+}
+
+bool fsw_has_events(fd_set *rfds) {
+    if (fsw_fd < 0) {
+        return false;
+    }
+    return FD_ISSET(fsw_fd, rfds) != 0;
+}
+
+void fsw_poll(void) {
     struct input_event ev;
     size_t size = sizeof(struct input_event);
 
     // Return empty footswitch state if device not opened:
     if (fsw_fd < 0) {
-        return 0;
+        return;
     }
 
     // Clear auto-repeat flags:
