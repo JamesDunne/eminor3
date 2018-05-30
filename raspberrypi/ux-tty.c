@@ -138,9 +138,7 @@ void ux_shutdown() {
 
     close(tty_fd);
 
-#ifdef HWFEAT_TOUCHSCREEN
     ts_shutdown();
-#endif
 }
 
 void ux_shutdown_signal(int signal) {
@@ -161,11 +159,9 @@ int ux_init(void) {
         return retval;
     }
 
-#ifdef HWFEAT_TOUCHSCREEN
     if ((retval = ts_init())) {
         return retval;
     }
-#endif
 
     // set stdin to non-blocking so we can read mouse events:
     fcntl(0, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
@@ -325,7 +321,6 @@ void ux_draw(void) {
     if (!ux_redraw) return;
     ux_redraw = false;
 
-#ifdef HWFEAT_REPORT
     // Prefer report feature for rendering a UX:
     char out[2500] = "";
     char *buf = out;
@@ -518,32 +513,6 @@ void ux_draw(void) {
         touched_component = -1;
     }
     last_ts_touching = ts_touching;
-#else
-# ifdef FEAT_LCD
-    u8 row;
-    char lcd[LCD_ROWS * (LCD_COLS + STRLEN(LCD_ANSI_NEXT_ROW)) + STRLEN(ANSI_CSI "99;99H") * 2 + 1] = "";
-    char *buf = lcd;
-
-    // Move cursor to position to draw "LCD" text:
-    int tty_lcd_row_center = tty_win.ws_row / 2 - LCD_ROWS / 2;
-    int tty_lcd_col_center = tty_win.ws_col / 2 - LCD_COLS / 2;
-    buf += ansi_move_cursor(buf, tty_lcd_row_center, tty_lcd_col_center);
-    for (row = 0; row < LCD_ROWS; row++) {
-        // Write LCD text row:
-        strncat(buf, lcd_row_get(row), LCD_COLS);
-        buf += LCD_COLS;
-        // Move back LCD_COLS columns and down one row
-        strcat(buf, LCD_ANSI_NEXT_ROW);
-        buf += STRLEN(LCD_ANSI_NEXT_ROW);
-    }
-
-    // Move cursor to last touchscreen row,col:
-    buf += ansi_move_cursor(buf, ts_row, ts_col);
-
-    // Send update to tty in one write call to reduce lag/tear:
-    write(tty_fd, lcd, buf - lcd);
-# endif
-#endif
 }
 
 // Poll for UX inputs:
@@ -582,26 +551,6 @@ bool mouse_poll() {
     return changed;
 }
 
-//// Poll for UX events:
-//bool ux_poll(void) {
-//    bool changed = false;
-//
-//#ifdef HWFEAT_TOUCHSCREEN
-//    // Poll for touchscreen input:
-//    changed |= ts_poll();
-//#endif
-//
-//    // Poll for xterm mouse input:
-//    changed |= mouse_poll();
-//
-//    // Register a redraw if touchscreen input changed:
-//    if (changed) {
-//        ux_redraw = true;
-//    }
-//
-//    return changed;
-//}
-
 int mouse_register(int nfds, fd_set *rfds) {
     FD_SET(STDIN_FILENO, rfds);
     if (STDIN_FILENO + 1 >= nfds) { nfds = STDIN_FILENO + 1; }
@@ -622,14 +571,10 @@ void ux_select(void) {
     // Draw the screen if needed:
     ux_draw();
 
-    // Clear socket set:
+    // Register file descriptors for select():
     FD_ZERO(&rfds);
-
-    // Listen to stdin for mouse events:
     nfds = mouse_register(nfds, &rfds);
-#ifdef HWFEAT_TOUCHSCREEN
     nfds = ts_register(nfds, &rfds);
-#endif
     nfds = fsw_register(nfds, &rfds);
 
     // Wait for an event:
@@ -642,12 +587,10 @@ void ux_select(void) {
         updated |= mouse_poll();
     }
 
-#ifdef HWFEAT_TOUCHSCREEN
     // Check touchscreen events:
     if (ts_has_events(&rfds)) {
         updated |= ts_poll();
     }
-#endif
 
     // TODO: footswitch events:
     if (fsw_has_events(&rfds)) {

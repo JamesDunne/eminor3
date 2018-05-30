@@ -69,6 +69,7 @@ add_executable(eminor3-darwin
         raspberrypi/main.c
         null/midi.c
         null/fsw.c
+        null/ts-input.c
         raspberrypi/ts-input.h
         raspberrypi/ux-tty.c)
 
