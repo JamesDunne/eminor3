@@ -40,6 +40,7 @@ int main(void) {
 
     // Initialize controller:
     controller_init();
+    controller_update();
 
     while (1) {
         // Wait for UX events and handle them:

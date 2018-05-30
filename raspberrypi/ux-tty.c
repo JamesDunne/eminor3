@@ -568,6 +568,9 @@ void ux_select(void) {
     fd_set rfds;
     int nfds = 0;
 
+    // Get the UX report from the controller:
+    report_fill(&ux_report);
+
     // Draw the screen if needed:
     ux_draw();
 
@@ -602,9 +605,6 @@ void ux_select(void) {
 
     // If controller state was modified, refresh the UX report to render the UI from:
     if (updated) {
-        // Get the UX report from the controller:
-        report_fill(&ux_report);
-
         // Request a screen redraw next time around:
         ux_redraw = true;
     }
