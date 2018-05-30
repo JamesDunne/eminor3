@@ -12,6 +12,8 @@
 #include <bits/signum.h>
 #include <signal.h>
 
+#include <sys/select.h>
+
 #include "types.h"
 #include "hardware.h"
 #include "util.h"
@@ -97,6 +99,17 @@ int ts_init(void) {
 
 void ts_shutdown(void) {
     close(ts_fd);
+}
+
+int ts_register(int nfds, fd_set *rfds) {
+    FD_SET(ts_fd, rfds);
+    if (ts_fd + 1 >= nfds) { nfds = ts_fd + 1; }
+
+    return nfds;
+}
+
+bool ts_has_events(fd_set *rfds) {
+    return FD_ISSET(ts_fd, rfds) != 0;
 }
 
 bool ts_poll(void) {

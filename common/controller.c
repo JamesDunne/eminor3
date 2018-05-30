@@ -15,72 +15,6 @@
     + Post-cab PEQ handles stereo out of CABs
     + Amp X/Y for dirty/clean (disable for acoustic)
     + Cab X/Y for electric/acoustic
-
-    Controller:
-    Amp control row:
-    * 1 clean/dirty toggle, hold for acoustic (switches XY for amp and cab, maybe PEQ)
-    * 2 volume dec, hold for 0dB
-    * 3 volume inc, hold for +6dB
-    * 4 gain dec, hold for song default
-    * 5 gain inc
-    * 6 switch to fx controls for row
-    * 7,8 unchanged = prev/next song or scene
-    FX row
-    * 1 pitch
-    * 2 custom, store MIDI CC
-    * 3 custom, store MIDI CC
-    * 4 chorus
-    * 5 delay
-    * 6 switch to amp controls for row
-
-TODO: adjust MIDI program # per song
-TODO: adjust tempo per song
-
-AMP controls:
-|------------------------------------------------------------|
-|     *      *      *      *      *      *      *      *     |          /--------------------\
-|  CLN|DRV GAIN-- GAIN++ VOL--  VOL++   FX    PR_PRV PR_NXT  |          |Beautiful_Disaster_*|
-|  ACOUSTC                             RESET                 |          |Sng 62/62  Scn  1/10|
-|                                                            |    LCD:  |C g=58 v=-99.9 P12CD|
-|     *      *      *      *      *      *      *      *     |          |D g=5E v=  0.0 -1---|
-|  CLN|DRV GAIN-- GAIN++ VOL--  VOL++   FX     MODE  SC_NXT  |          \--------------------/
-|  ACOUSTC                             RESET         SC_ONE  |
-|------------------------------------------------------------|
-
-Press CLN|DRV to toggle clean vs overdrive mode (clean:    AMP -> Y, CAB -> X, gain -> 0x5E; dirty: AMP -> X, CAB -> X, gain -> n)
-Hold  ACOUSTC to switch to acoustic emulation   (acoustic: AMP -> bypass, CAB -> Y, gain -> 0x5E)
-
-Hold  VOL--   to decrease volume slowly
-Hold  VOL++   to increase volume slowly
-
-Hold  GAIN--  to decrease gain slowly
-Hold  GAIN++  to increase gain slowly
-
-Press FX      to switch row to FX mode
-
-Hold  RESET   to resend MIDI state for amp
-
-Press PR_PRV  to select previous song or program depending on MODE
-Press PR_NXT  to select next song or program depending on MODE
-
-Press MODE    to switch between set-list order and program # order
-
-Press SC_NXT  to advance to next scene, move to next song scene 1 if at end
-Hold  SC_ONE  to reset scene to 1 on current song
-
-FX controls:
-|------------------------------------------------------------|    
-|     *      *      *      *      *      *      *      *     |          /--------------------\
-|    FX1    FX2    FX3   CHORUS DELAY   AMP   PR_PRV PR_NXT  |          |What_I_Got_________*|
-|   SELECT SELECT SELECT                                     |          |Sng 62/62  Scn  2/ 3|
-|                                                            |    LCD:  |PIT1ROT1FIL1CHO1DLY1|
-|     *      *      *      *      *      *      *      *     |          |A g=5E v=  6.0 ---CD|
-|  CLN|DRV GAIN-- GAIN++ VOL--  VOL++   FX     MODE  SC_NXT  |          \--------------------/
-|  ACOUSTC                             RESET         SC_ONE  |
-|------------------------------------------------------------|
-
-Press AMP to switch row to AMP mode
-
 */
 
 #include <string.h>
@@ -93,7 +27,6 @@ Press AMP to switch row to AMP mode
 #define gmaj_midi_channel    0
 #define rjm_midi_channel     1
 #define axe_midi_channel     2
-#define triaxis_midi_channel 3
 
 // Axe-FX II CC messages:
 #define axe_cc_taptempo     14
@@ -136,30 +69,8 @@ Press AMP to switch row to AMP mode
 #define axe_cc_xy_pitch1   114
 #define axe_cc_xy_pitch2   115
 
-#ifdef FEAT_LCD
-// Pointers to LCD character rows:
-char *lcd_rows[LCD_ROWS];
-#define row_song 0
-#define row_stat 1
-#define row_amp1 2
-#define row_amp2 3
-#endif
-
-enum {
-    MODE_LIVE = 0,
-    MODE_count
-};
-
-enum rowstate_mode {
-    ROWMODE_AMP,
-    ROWMODE_FX
-};
-
 // Tap tempo CC value (toggles between 0x00 and 0x7F):
 u8 tap;
-
-// Current mode:
-u8 mode;
 
 // Max program #:
 u8 sl_max;
@@ -168,9 +79,6 @@ rom struct program *origpr;
 
 // Structure to represent state that should be compared from current to last to detect changes in program.
 struct state {
-    // Footswitch state:
-    u16 fsw;
-
     // 0 for program mode, 1 for setlist mode:
     u8 setlist_mode;
     // Current setlist entry:
@@ -187,12 +95,6 @@ struct state {
     // Amp definitions:
     struct amp amp[2];
 
-    // Each row's current state:
-    struct {
-        enum rowstate_mode mode;
-        u8 fx;
-    } rowstate[2];
-
     // Whether current program is modified in any way:
     u8 modified;
 };
@@ -200,7 +102,8 @@ struct state {
 // Current and last state:
 struct state curr, last;
 struct {
-    u8 amp_byp, amp_xy, cab_xy, gain, clean_gain, gate;
+    u8 amp_byp, amp_xy, cab_xy;
+    u8 gain, clean_gain, gate;
 } last_amp[2];
 
 // Loaded setlist:
@@ -257,15 +160,8 @@ static void scene_default(void);
 
 #define or_default(a, b) (a == 0 ? b : a)
 
-static void update_lcd(void);
-
-#ifdef HWFEAT_REPORT
-
-// Initialized in controller_init:
-struct report *report = NULL;
-
 // Fill in a report structure with latest controller data:
-static void report_build(void) {
+void report_fill(struct report *report) {
     // Safety:
     if (report == NULL) return;
 
@@ -305,8 +201,9 @@ static void report_build(void) {
         else
             report->amp[i].tone = AMP_TONE_CLEAN;
 
-        report->amp[i].gain_dirty = last_amp[i].gain;
-        // TODO: gain_clean needs fixing controller code to be its own value
+        report->amp[i].gain[AMP_TONE_DIRTY] = last_amp[i].gain;
+        report->amp[i].gain[AMP_TONE_CLEAN] = last_amp[i].clean_gain;
+        // TODO: unify on AMP_TONE_* enums
 
         report->amp[i].volume = curr.amp[i].volume;
 
@@ -317,16 +214,11 @@ static void report_build(void) {
             report->amp[i].fx_midi_cc[f] = pr.fx_midi_cc[i][f];
         }
     }
-
-    // Notify host that report is updated:
-    report_notify();
 }
-
-#endif
 
 // MIDI is sent at a fixed 3,125 bytes/sec transfer rate; 56 bytes takes 175ms to complete.
 // calculate the difference from last MIDI state to current MIDI state and send the difference as MIDI commands:
-static void calc_midi(void) {
+static bool calc_midi(void) {
     u8 diff = 0;
     u8 dirty, last_dirty;
     u8 acoustc, last_acoustc;
@@ -522,261 +414,11 @@ static void calc_midi(void) {
         diff = 1;
     }
 
-    if (curr.rowstate[0].mode != last.rowstate[0].mode) {
-        diff = 1;
-    }
-    if (curr.rowstate[1].mode != last.rowstate[1].mode) {
-        diff = 1;
-    }
     if (curr.modified != last.modified) {
         diff = 1;
     }
 
-    // Update LCD if the state changed:
-    if (diff) {
-        update_lcd();
-
-#ifdef HWFEAT_REPORT
-        report_build();
-#endif
-    }
-}
-
-#ifdef HWFEAT_LABEL_UPDATES
-char tmplabel[5][5];
-#endif
-
-// Update LCD display:
-static void update_lcd(void) {
-#ifdef HWFEAT_LABEL_UPDATES
-    const char **labels;
-    u8 n;
-#endif
-#ifdef FEAT_LCD
-    s8 i;
-    u8 test_fx;
-    char *d;
-#endif
-    DEBUG_LOG0("update LCD");
-#ifdef HWFEAT_LABEL_UPDATES
-    // Top row:
-    labels = label_row_get(1);
-    switch (curr.rowstate[0].mode) {
-        case ROWMODE_AMP:
-            labels[0] = "CLN/DRV|AC";
-            labels[1] = "GAIN--";
-            labels[2] = "GAIN++";
-            labels[3] = "VOL--";
-            labels[4] = "VOL++";
-            labels[5] = "FX|RESET";
-            break;
-        case ROWMODE_FX:
-            labels[0] = fx_name(pr.fx_midi_cc[0][0]);
-            labels[1] = fx_name(pr.fx_midi_cc[0][1]);
-            labels[2] = fx_name(pr.fx_midi_cc[0][2]);
-            labels[3] = fx_name(pr.fx_midi_cc[0][3]);
-            labels[4] = fx_name(pr.fx_midi_cc[0][4]);
-            for (n = 0; n < 5; n++) {
-                tmplabel[n][0] = labels[n][0];
-                tmplabel[n][1] = labels[n][1];
-                tmplabel[n][2] = labels[n][2];
-                tmplabel[n][3] = labels[n][3];
-                tmplabel[n][4] = 0;
-                labels[n] = tmplabel[n];
-            }
-            labels[5] = "FX|RESET";
-            break;
-    }
-    labels[6] = "SONG--";
-    labels[7] = "SONG++";
-    label_row_update(1);
-
-    // Bottom row:
-    labels = label_row_get(0);
-    switch (curr.rowstate[1].mode) {
-        case ROWMODE_AMP:
-            labels[0] = "CLN/DRV|AC";
-            labels[1] = "GAIN--";
-            labels[2] = "GAIN++";
-            labels[3] = "VOL--";
-            labels[4] = "VOL++";
-            labels[5] = "FX|RESET";
-            break;
-        case ROWMODE_FX:
-            labels[0] = fx_name(pr.fx_midi_cc[1][0]);
-            labels[1] = fx_name(pr.fx_midi_cc[1][1]);
-            labels[2] = fx_name(pr.fx_midi_cc[1][2]);
-            labels[3] = fx_name(pr.fx_midi_cc[1][3]);
-            labels[4] = fx_name(pr.fx_midi_cc[1][4]);
-            for (n = 0; n < 5; n++) {
-                tmplabel[n][0] = labels[n][0];
-                tmplabel[n][1] = labels[n][1];
-                tmplabel[n][2] = labels[n][2];
-                tmplabel[n][3] = labels[n][3];
-                tmplabel[n][4] = 0;
-                labels[n] = tmplabel[n];
-            }
-            labels[5] = "FX|RESET";
-            break;
-    }
-    labels[6] = "TAP|MODE";
-    labels[7] = "SCENE++|1";
-    label_row_update(0);
-#endif
-#ifdef FEAT_LCD
-    for (i = 0; i < LCD_COLS; ++i) {
-        lcd_rows[row_song][i] = "                    "[i];
-        lcd_rows[row_stat][i] = "                    "[i];
-    }
-
-    // Print setlist date:
-    if (curr.setlist_mode == 0) {
-        for (i = 0; i < LCD_COLS; i++) {
-            lcd_rows[row_stat][i] = "Prg  0/128 Scn  0/ 0"[i];
-        }
-
-        // Show program number:
-        ritoa(lcd_rows[row_stat], 5, curr.pr_idx + (u8) 1);
-    } else {
-        for (i = 0; i < LCD_COLS; i++) {
-            lcd_rows[row_stat][i] = "Sng  0/ 0  Scn  0/ 0"[i];
-        }
-
-        // Show setlist song index:
-        ritoa(lcd_rows[row_stat], 5, curr.sl_idx + (u8) 1);
-        // Show setlist song count:
-        ritoa(lcd_rows[row_stat], 8, sl_max + (u8) 1);
-    }
-    // Scene number:
-    ritoa(lcd_rows[row_stat], 16, curr.sc_idx + (u8) 1);
-    // Scene count:
-    ritoa(lcd_rows[row_stat], 19, pr.scene_count);
-
-    // Song name:
-    if (pr.name[0] == 0) {
-        // Show unnamed song index:
-        for (i = 0; i < LCD_COLS; i++) {
-            lcd_rows[row_song][i] = "__unnamed song #    "[i];
-        }
-        ritoa(lcd_rows[row_song], 18, curr.pr_idx + (u8) 1);
-    } else {
-        copy_str_lcd(pr.name, lcd_rows[row_song]);
-    }
-    // Set modified bit:
-    if (curr.modified) {
-        lcd_rows[row_song][19] = '*';
-    }
-
-    // AMP1:
-    switch (curr.rowstate[0].mode) {
-        case ROWMODE_AMP:
-            for (i = 0; i < LCD_COLS; i++) {
-                lcd_rows[row_amp1][i] = "1C g 0  v  0.0 -----"[i];
-            }
-
-            if ((curr.amp[0].fx & fxm_acoustc) != 0) {
-                // A for acoustic
-                lcd_rows[row_amp1][1] = 'A';
-            } else {
-                // C/D for clean/dirty
-                lcd_rows[row_amp1][1] = 'C' + ((curr.amp[0].fx & fxm_dirty) != 0);
-            }
-            hextoa(lcd_rows[row_amp1], 5, last_amp[0].gain);
-            bcdtoa(lcd_rows[row_amp1], 13, dB_bcd_lookup[curr.amp[0].volume]);
-
-            test_fx = 1;
-            d = &lcd_rows[row_amp1][15];
-            for (i = 0; i < 5; i++, test_fx <<= 1) {
-                rom const char *name = fx_name(pr.fx_midi_cc[0][i]);
-                const u8 lowercase_enable_mask = (~(curr.amp[0].fx & test_fx) << (5 - i));
-                u8 is_alpha_mask, c;
-
-                c = *name;
-                is_alpha_mask = (c & 0x40) >> 1;
-                *d++ = (c & ~is_alpha_mask) | (is_alpha_mask & lowercase_enable_mask);
-            }
-            break;
-        case ROWMODE_FX:
-            for (i = 0; i < LCD_COLS; i++) {
-                lcd_rows[row_amp1][i] = "                    "[i];
-            }
-            test_fx = 1;
-            d = &lcd_rows[row_amp1][0];
-            for (i = 0; i < 5; i++, test_fx <<= 1) {
-                rom const char *name = fx_name(pr.fx_midi_cc[0][i]);
-                u8 is_alpha_mask, c, j;
-
-                // Select 0x20 or 0x00 depending on if FX disabled or enabled, respectively:
-                const u8 lowercase_enable_mask = (~(curr.amp[0].fx & test_fx) << (5 - i));
-
-                // Uppercase enabled fx names; lowercase disabled.
-                // 0x40 is used as an alpha test; this will fail for "@[\]^_`{|}~" but none of these are present in FX names.
-                // 0x40 (or 0) is shifted right 1 bit to turn it into a mask for 0x20 to act as lowercase/uppercase switch.
-                for (j = 0; j < 4; j++) {
-                    c = *name++;
-                    is_alpha_mask = (c & 0x40) >> 1;
-                    *d++ = (c & ~is_alpha_mask) | (is_alpha_mask & lowercase_enable_mask);
-                }
-            }
-            break;
-    }
-
-    // AMP2:
-    switch (curr.rowstate[1].mode) {
-        case ROWMODE_AMP:
-            for (i = 0; i < LCD_COLS; i++) {
-                lcd_rows[row_amp2][i] = "2C g 0  v  0.0 -----"[i];
-            }
-
-            if ((curr.amp[1].fx & fxm_acoustc) != 0) {
-                // A for acoustic
-                lcd_rows[row_amp2][1] = 'A';
-            } else {
-                // C/D for clean/dirty
-                lcd_rows[row_amp2][1] = 'C' + ((curr.amp[1].fx & fxm_dirty) != 0);
-            }
-            hextoa(lcd_rows[row_amp2], 5, last_amp[1].gain);
-            bcdtoa(lcd_rows[row_amp2], 13, dB_bcd_lookup[curr.amp[1].volume]);
-
-            test_fx = 1;
-            d = &lcd_rows[row_amp2][15];
-            for (i = 0; i < 5; i++, test_fx <<= 1) {
-                rom const char *name = fx_name(pr.fx_midi_cc[1][i]);
-                const u8 lowercase_enable_mask = (~(curr.amp[1].fx & test_fx) << (5 - i));
-                u8 is_alpha_mask, c;
-
-                c = *name;
-                is_alpha_mask = (c & 0x40) >> 1;
-                *d++ = (c & ~is_alpha_mask) | (is_alpha_mask & lowercase_enable_mask);
-            }
-            break;
-        case ROWMODE_FX:
-            for (i = 0; i < LCD_COLS; i++) {
-                lcd_rows[row_amp2][i] = "                    "[i];
-            }
-            test_fx = 1;
-            d = &lcd_rows[row_amp2][0];
-            for (i = 0; i < 5; i++, test_fx <<= 1) {
-                rom const char *name = fx_name(pr.fx_midi_cc[1][i]);
-                u8 is_alpha_mask, c, j;
-
-                // Select 0x20 or 0x00 depending on if FX disabled or enabled, respectively:
-                const u8 lowercase_enable_mask = (~(curr.amp[1].fx & test_fx) << (5 - i));
-
-                // Uppercase enabled fx names; lowercase disabled.
-                // 0x40 is used as an alpha test; this will fail for "@[\]^_`{|}~" but none of these are present in FX names.
-                // 0x40 (or 0) is shifted right 1 bit to turn it into a mask for 0x20 to act as lowercase/uppercase switch.
-                for (j = 0; j < 4; j++) {
-                    c = *name++;
-                    is_alpha_mask = (c & 0x40) >> 1;
-                    *d++ = (c & ~is_alpha_mask) | (is_alpha_mask & lowercase_enable_mask);
-                }
-            }
-            break;
-    }
-
-    lcd_updated_all();
-#endif
+    return diff;
 }
 
 static void calc_gain_modified(void) {
@@ -1042,13 +684,6 @@ void controller_init(void) {
 
     tap = 0;
 
-#ifdef HWFEAT_REPORT
-    // get writable report location:
-    report = report_target();
-#endif
-
-    mode = MODE_LIVE;
-
     last.setlist_mode = 1;
     curr.setlist_mode = 1;
 
@@ -1074,11 +709,6 @@ void controller_init(void) {
     last.sc_idx = curr.sc_idx;
 
     for (i = 0; i < 2; i++) {
-        curr.rowstate[i].mode = ROWMODE_AMP;
-        curr.rowstate[i].fx = (u8) 0;
-        last.rowstate[i].mode = ~ROWMODE_AMP;
-        last.rowstate[i].fx = ~(u8) 0;
-
         // Copy current scene settings into state:
         curr.amp[i] = pr.scene[curr.sc_idx].amp[i];
 
@@ -1089,44 +719,10 @@ void controller_init(void) {
 
     // Force MIDI changes on init:
     midi_invalidate();
-
-#ifdef FEAT_LCD
-    for (i = 0; i < LCD_ROWS; ++i)
-        lcd_rows[i] = lcd_row_get(i);
-
-    for (i = 0; i < LCD_COLS; ++i) {
-        lcd_rows[row_amp1][i] = "                    "[i];
-        lcd_rows[row_amp2][i] = "                    "[i];
-        lcd_rows[row_stat][i] = "                    "[i];
-        lcd_rows[row_song][i] = "                    "[i];
-    }
-#endif
 }
 
-// called every 10ms
-void controller_10msec_timer(void) {
-}
-
-// main control loop
-void controller_handle(void) {
-    // poll foot-switch status:
-    u16 tmp = fsw_poll();
-    curr.fsw = tmp;
-
-#define is_btn_pressed(m) ( \
-    ( ((last.fsw & m) != m) && ((curr.fsw & m) == m) ) || \
-    ( (curr.fsw & (m << 8u)) == (m << 8u) ) \
-)
-
-    if (is_btn_pressed(M_1)) {
-        prev_song();
-    }
-    if (is_btn_pressed(M_2)) {
-        next_song();
-    }
-    if (is_btn_pressed(M_3)) {
-        next_scene();
-    }
+bool controller_update(void) {
+    bool updated;
 
     // Update state:
     if ((curr.setlist_mode != last.setlist_mode) || (curr.sl_idx != last.sl_idx) || (curr.pr_idx != last.pr_idx)) {
@@ -1140,8 +736,10 @@ void controller_handle(void) {
         load_scene();
     }
 
-    calc_midi();
+    updated = calc_midi();
 
     // Record the previous state:
     last = curr;
+
+    return updated;
 }

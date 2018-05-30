@@ -8,26 +8,12 @@
 
 #include <stdbool.h>
 
-// Features enabled/disable:
-
-// Enable LCD display:
-//#define FEAT_LCD
-
-// Define a DEBUG_LOG0 macro:
-#ifdef __MCC18
-#define DEBUG_LOG0(fmt)
-#define DEBUG_LOG1(fmt,a1)
-#define DEBUG_LOG2(fmt,a1,a2)
-#define DEBUG_LOG3(fmt,a1,a2,a3)
-#else
-
 extern void debug_log(const char *fmt, ...);
 
 #define DEBUG_LOG0(fmt) debug_log(fmt)
 #define DEBUG_LOG1(fmt, a1) debug_log(fmt,a1)
 #define DEBUG_LOG2(fmt, a1, a2) debug_log(fmt,a1,a2)
 #define DEBUG_LOG3(fmt, a1, a2, a3) debug_log(fmt,a1,a2,a3)
-#endif
 
 // --------------- Momentary toggle foot-switches and LEDs:
 
@@ -39,30 +25,6 @@ extern void debug_log(const char *fmt, ...);
 #define M_6 0x20U
 #define M_7 0x40U
 #define M_8 0x80U
-
-// Foot switch and LED on/off states are represented with u16 bit-fields;
-// the bottom row takes up LSBs (bits 0-7) and top row takes up MSBs (bits 8-15).
-
-// Poll 16 foot-switch states:
-extern u16 fsw_poll(void);
-
-// Explicitly set the state of all 16 LEDs:
-extern void led_set(u16 leds);
-
-#ifdef FEAT_LCD
-
-// Example LCD display: http://www.newhavendisplay.com/nhd0420d3znswbbwv3-p-5745.html 4x20 characters
-#define LCD_COLS    20
-#define LCD_ROWS    4
-
-// Get pointer to a specific LCD row:
-// A terminating NUL character will clear the rest of the row with empty space.
-extern char *lcd_row_get(u8 row);
-
-// Update all LCD display rows as updated:
-extern void lcd_updated_all(void);
-
-#endif
 
 // --------------- MIDI I/O functions:
 
@@ -101,9 +63,7 @@ extern rom const u8 *flash_addr(u16 addr);
 
 /* export */ extern void controller_init(void);
 
-/* export */ extern void controller_10msec_timer(void);
-
-/* export */ extern void controller_handle(void);
+/* export */ extern bool controller_update(void);
 
 void prev_scene(void);
 
@@ -133,21 +93,11 @@ void get_program_name(int pr_idx, char *name);
 
 int get_set_list_program(int sl_idx);
 
-#ifdef HWFEAT_LABEL_UPDATES
-
-// --------------- Change button labels (for Win32 / HTML5 interfaces only):
-
-/* export */ extern char **label_row_get(u8 row);
-/* export */ extern void label_row_update(u8 row);
-
-#endif
-
-#ifdef HWFEAT_REPORT
-
 enum amp_tone {
     AMP_TONE_CLEAN,
     AMP_TONE_DIRTY,
-    AMP_TONE_ACOUSTIC
+    AMP_TONE_ACOUSTIC,
+    AMP_TONE_MAX
 };
 
 #define FX_COUNT 5
@@ -158,8 +108,7 @@ struct amp_report {
     enum amp_tone tone;
 
     // gain values for amp X/Y as MIDI [0, 127]:
-    int gain_dirty;
-    int gain_clean;
+    int gain[AMP_TONE_MAX];
 
     // volume boost/attenuation as MIDI [0, 127]:
     int volume;
@@ -193,10 +142,5 @@ struct report {
     struct amp_report amp[2];
 };
 
-// Ask the host for a writable report:
-extern struct report *report_target(void);
-
-// Notify the host that the report was updated:
-extern void report_notify(void);
-
-#endif
+// Fill in an existing report structure with current state:
+void report_fill(struct report *report);

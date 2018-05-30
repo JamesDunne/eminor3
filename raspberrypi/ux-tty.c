@@ -10,6 +10,8 @@
 #include <stdbool.h>
 #include <signal.h>
 
+#include <sys/select.h>
+
 #include "types.h"
 #include "hardware.h"
 #include "util.h"
@@ -49,9 +51,7 @@ int ts_row;
 
 bool ux_redraw = true;
 
-#ifdef HWFEAT_REPORT
 struct report ux_report;
-#endif
 
 // Resets tty0 to initial state on exit:
 void reset_input_mode(void) {
@@ -131,8 +131,7 @@ void ux_ts_update_touching(bool touching) {
 // Shutdown UX, close files, and restore sane tty:
 void ux_shutdown() {
     // disable xterm mouse reporting:
-    write(STDOUT_FILENO, ANSI_CSI "?1000l", STRLEN(ANSI_CSI
-                                                           "?1000l"));
+    write(STDOUT_FILENO, ANSI_CSI "?1000l", STRLEN(ANSI_CSI "?1000l"));
 
     // reset stdin:
     reset_input_mode();
@@ -172,85 +171,13 @@ int ux_init(void) {
     fcntl(0, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
     // enable xterm mouse reporting:
-    write(STDOUT_FILENO, ANSI_CSI "?1003h", STRLEN(ANSI_CSI
-                                                           "?1003h"));
+    write(STDOUT_FILENO, ANSI_CSI "?1003h", STRLEN(ANSI_CSI "?1003h"));
 
     // register atexit and SIGINT handler for CTRL-C:
     atexit(ux_shutdown);
     signal(SIGINT, ux_shutdown_signal);
 
     return 0;
-}
-
-// Poll for UX inputs:
-bool mouse_poll() {
-    bool changed = false;
-    // `ESC` `[` `M` bxy
-    char buf[6];
-    ssize_t n;
-
-    // read mouse events from stdin:
-    while ((n = read(STDIN_FILENO, buf, 1)) == 1) {
-        if (buf[0] != '\033') continue;
-
-        n = read(STDIN_FILENO, buf, 5);
-        if (n != 5) {
-            fprintf(stderr, "Not enough bytes to complete mouse report from read\n");
-            continue;
-        }
-
-        if (buf[0] != '[') continue;
-        if (buf[1] != 'M') continue;
-        // b encodes what mouse button was pressed or released combined with keyboard modifiers.
-        unsigned char b = (unsigned char) buf[2] - (unsigned char) 0x20;
-        unsigned char x = (unsigned char) buf[3] - (unsigned char) 0x20;
-        unsigned char y = (unsigned char) buf[4] - (unsigned char) 0x20;
-
-        //fprintf(stderr, "MOUSE: b=%d x=%d y=%d\n", (int) b, (int) x, (int) y);
-
-        // generate input_events for touchscreen compatibility:
-        ux_ts_update_touching((b & 3) != 3); // pressed = 1 vs. released = -1
-        ux_ts_update_col((x - 1) * (ux_ts_x_max - ux_ts_x_min) / (tty_win.ws_col) + ux_ts_x_min);
-        ux_ts_update_row((y - 1) * (ux_ts_y_max - ux_ts_y_min) / (tty_win.ws_row) + ux_ts_y_min);
-        changed = true;
-    }
-
-    return changed;
-}
-
-bool ux_poll(void) {
-    bool changed = false;
-
-#ifdef HWFEAT_TOUCHSCREEN
-    // Poll for touchscreen input:
-    changed |= ts_poll();
-#endif
-
-    // Poll for xterm mouse input:
-    changed |= mouse_poll();
-
-    // Register a redraw if touchscreen input changed:
-    if (changed) {
-        ux_notify_redraw();
-    }
-
-    return changed;
-}
-
-void ux_notify_redraw(void) {
-    ux_redraw = true;
-}
-
-#ifdef HWFEAT_REPORT
-// Hand back the global variable location to write reports to:
-struct report *report_target(void) {
-    return &ux_report;
-}
-#endif
-
-// When a new report is ready, redraw the UX:
-void report_notify(void) {
-    ux_notify_redraw();
 }
 
 #define LCD_ANSI_NEXT_ROW ANSI_CSI "B" ANSI_CSI STRING(LCD_COLS) "D"
@@ -536,8 +463,8 @@ void ux_draw(void) {
             // Draw horizontal slider box for gain:
             ++row;
             buf += ansi_move_cursor(buf, row, 0);
-            buf += sprintf(buf, "Gain:   %3d", amp.gain_dirty);
-            buf = ux_hslider_draw(buf, row, 12, 32, amp.gain_dirty + 1, 128);
+            buf += sprintf(buf, "Gain:   %3d", amp.gain[amp.tone]);
+            buf = ux_hslider_draw(buf, row, 12, 32, amp.gain[amp.tone] + 1, 128);
             component_touching_action(component, row, 12, 32, (void *)a, gain_slider_touching);
             component++;
 
@@ -617,4 +544,125 @@ void ux_draw(void) {
     write(tty_fd, lcd, buf - lcd);
 # endif
 #endif
+}
+
+// Poll for UX inputs:
+bool mouse_poll() {
+    bool changed = false;
+    // `ESC` `[` `M` bxy
+    char buf[6];
+    ssize_t n;
+
+    // read mouse events from stdin:
+    while ((n = read(STDIN_FILENO, buf, 1)) == 1) {
+        if (buf[0] != '\033') continue;
+
+        n = read(STDIN_FILENO, buf, 5);
+        if (n != 5) {
+            fprintf(stderr, "Not enough bytes to complete mouse report from read\n");
+            continue;
+        }
+
+        if (buf[0] != '[') continue;
+        if (buf[1] != 'M') continue;
+        // b encodes what mouse button was pressed or released combined with keyboard modifiers.
+        unsigned char b = (unsigned char) buf[2] - (unsigned char) 0x20;
+        unsigned char x = (unsigned char) buf[3] - (unsigned char) 0x20;
+        unsigned char y = (unsigned char) buf[4] - (unsigned char) 0x20;
+
+        //fprintf(stderr, "MOUSE: b=%d x=%d y=%d\n", (int) b, (int) x, (int) y);
+
+        // generate input_events for touchscreen compatibility:
+        ux_ts_update_touching((b & 3) != 3); // pressed = 1 vs. released = -1
+        ux_ts_update_col((x - 1) * (ux_ts_x_max - ux_ts_x_min) / (tty_win.ws_col) + ux_ts_x_min);
+        ux_ts_update_row((y - 1) * (ux_ts_y_max - ux_ts_y_min) / (tty_win.ws_row) + ux_ts_y_min);
+        changed = true;
+    }
+
+    return changed;
+}
+
+//// Poll for UX events:
+//bool ux_poll(void) {
+//    bool changed = false;
+//
+//#ifdef HWFEAT_TOUCHSCREEN
+//    // Poll for touchscreen input:
+//    changed |= ts_poll();
+//#endif
+//
+//    // Poll for xterm mouse input:
+//    changed |= mouse_poll();
+//
+//    // Register a redraw if touchscreen input changed:
+//    if (changed) {
+//        ux_redraw = true;
+//    }
+//
+//    return changed;
+//}
+
+int mouse_register(int nfds, fd_set *rfds) {
+    FD_SET(STDIN_FILENO, rfds);
+    if (STDIN_FILENO + 1 >= nfds) { nfds = STDIN_FILENO + 1; }
+
+    return nfds;
+}
+
+bool mouse_has_events(fd_set *rfds) {
+    return FD_ISSET(STDIN_FILENO, rfds) != 0;
+}
+
+// Wait for UX events:
+void ux_select(void) {
+    bool updated = false;
+    fd_set rfds;
+    int nfds = 0;
+
+    // Draw the screen if needed:
+    ux_draw();
+
+    // Clear socket set:
+    FD_ZERO(&rfds);
+
+    // Listen to stdin for mouse events:
+    nfds = mouse_register(nfds, &rfds);
+#ifdef HWFEAT_TOUCHSCREEN
+    nfds = ts_register(nfds, &rfds);
+#endif
+    nfds = fsw_register(nfds, &rfds);
+
+    // Wait for an event:
+    if (select(nfds, &rfds, NULL, NULL, NULL) < 0) {
+        perror("select");
+    }
+
+    // Check mouse events:
+    if (mouse_has_events(&rfds)) {
+        updated |= mouse_poll();
+    }
+
+#ifdef HWFEAT_TOUCHSCREEN
+    // Check touchscreen events:
+    if (ts_has_events(&rfds)) {
+        updated |= ts_poll();
+    }
+#endif
+
+    // TODO: footswitch events:
+    if (fsw_has_events(&rfds)) {
+        fsw_poll();
+    }
+
+    // Update controller state:
+    updated |= controller_update();
+
+    // If controller state was modified, refresh the UX report to render the UI from:
+    if (updated) {
+        // Get the UX report from the controller:
+        report_fill(&ux_report);
+
+        // Request a screen redraw next time around:
+        ux_redraw = true;
+    }
 }
