@@ -103,8 +103,6 @@ int tty_init(void) {
     return 0;
 }
 
-bool mouse_poll();
-
 int max(int a, int b);
 
 int min(int a, int b);
@@ -178,6 +176,53 @@ int ux_init(void) {
     signal(SIGINT, ux_shutdown_signal);
 
     return 0;
+}
+
+// Poll for UX inputs:
+bool mouse_poll() {
+    bool changed = false;
+    // `ESC` `[` `M` bxy
+    char buf[6];
+    ssize_t n;
+
+    // read mouse events from stdin:
+    while ((n = read(STDIN_FILENO, buf, 1)) == 1) {
+        if (buf[0] != '\033') continue;
+
+        n = read(STDIN_FILENO, buf, 5);
+        if (n != 5) {
+            fprintf(stderr, "Not enough bytes to complete mouse report from read\n");
+            continue;
+        }
+
+        if (buf[0] != '[') continue;
+        if (buf[1] != 'M') continue;
+        // b encodes what mouse button was pressed or released combined with keyboard modifiers.
+        unsigned char b = (unsigned char) buf[2] - (unsigned char) 0x20;
+        unsigned char x = (unsigned char) buf[3] - (unsigned char) 0x20;
+        unsigned char y = (unsigned char) buf[4] - (unsigned char) 0x20;
+
+        //fprintf(stderr, "MOUSE: b=%d x=%d y=%d\n", (int) b, (int) x, (int) y);
+
+        // generate input_events for touchscreen compatibility:
+        ux_ts_update_touching((b & 3) != 3); // pressed = 1 vs. released = -1
+        ux_ts_update_col((x - 1) * (ux_ts_x_max - ux_ts_x_min) / (tty_win.ws_col) + ux_ts_x_min);
+        ux_ts_update_row((y - 1) * (ux_ts_y_max - ux_ts_y_min) / (tty_win.ws_row) + ux_ts_y_min);
+        changed = true;
+    }
+
+    return changed;
+}
+
+int mouse_register(int nfds, fd_set *rfds) {
+    FD_SET(STDIN_FILENO, rfds);
+    if (STDIN_FILENO + 1 >= nfds) { nfds = STDIN_FILENO + 1; }
+
+    return nfds;
+}
+
+bool mouse_has_events(fd_set *rfds) {
+    return FD_ISSET(STDIN_FILENO, rfds) != 0;
 }
 
 #define LCD_ANSI_NEXT_ROW ANSI_CSI "B" ANSI_CSI STRING(LCD_COLS) "D"
@@ -517,53 +562,6 @@ void ux_draw(void) {
         touched_component = -1;
     }
     last_ts_touching = ts_touching;
-}
-
-// Poll for UX inputs:
-bool mouse_poll() {
-    bool changed = false;
-    // `ESC` `[` `M` bxy
-    char buf[6];
-    ssize_t n;
-
-    // read mouse events from stdin:
-    while ((n = read(STDIN_FILENO, buf, 1)) == 1) {
-        if (buf[0] != '\033') continue;
-
-        n = read(STDIN_FILENO, buf, 5);
-        if (n != 5) {
-            fprintf(stderr, "Not enough bytes to complete mouse report from read\n");
-            continue;
-        }
-
-        if (buf[0] != '[') continue;
-        if (buf[1] != 'M') continue;
-        // b encodes what mouse button was pressed or released combined with keyboard modifiers.
-        unsigned char b = (unsigned char) buf[2] - (unsigned char) 0x20;
-        unsigned char x = (unsigned char) buf[3] - (unsigned char) 0x20;
-        unsigned char y = (unsigned char) buf[4] - (unsigned char) 0x20;
-
-        //fprintf(stderr, "MOUSE: b=%d x=%d y=%d\n", (int) b, (int) x, (int) y);
-
-        // generate input_events for touchscreen compatibility:
-        ux_ts_update_touching((b & 3) != 3); // pressed = 1 vs. released = -1
-        ux_ts_update_col((x - 1) * (ux_ts_x_max - ux_ts_x_min) / (tty_win.ws_col) + ux_ts_x_min);
-        ux_ts_update_row((y - 1) * (ux_ts_y_max - ux_ts_y_min) / (tty_win.ws_row) + ux_ts_y_min);
-        changed = true;
-    }
-
-    return changed;
-}
-
-int mouse_register(int nfds, fd_set *rfds) {
-    FD_SET(STDIN_FILENO, rfds);
-    if (STDIN_FILENO + 1 >= nfds) { nfds = STDIN_FILENO + 1; }
-
-    return nfds;
-}
-
-bool mouse_has_events(fd_set *rfds) {
-    return FD_ISSET(STDIN_FILENO, rfds) != 0;
 }
 
 // Wait for UX events:
