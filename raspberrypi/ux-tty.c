@@ -572,11 +572,16 @@ void ux_select(void) {
     fd_set rfds;
     int nfds = 0;
 
-    // Get the UX report from the controller:
-    report_fill(&ux_report);
+    while (ux_redraw) {
+        // Get the UX report from the controller:
+        report_fill(&ux_report);
 
-    // Draw the screen if needed:
-    ux_draw();
+        // Draw the screen if needed:
+        ux_draw();
+
+        // Update controller state:
+        ux_redraw = controller_update();
+    }
 
     // Register file descriptors for select():
     FD_ZERO(&rfds);
@@ -599,7 +604,7 @@ void ux_select(void) {
         updated |= ts_poll();
     }
 
-    // TODO: footswitch events:
+    // Check footswitch events:
     if (fsw_has_events(&rfds)) {
         fsw_poll();
     }
