@@ -93,6 +93,8 @@ void get_program_name(int pr_idx, char *name);
 
 int get_set_list_program(int sl_idx);
 
+void fx_toggle(int amp, int fx);
+
 enum amp_tone {
     AMP_TONE_CLEAN,
     AMP_TONE_DIRTY,

@@ -364,6 +364,16 @@ void gain_slider_touching(void *state) {
     gain_set(a, (u8) new_gain);
 }
 
+struct fx_toggle_state {
+    int amp;
+    int fx;
+};
+
+void fx_toggle_action(void *state) {
+    struct fx_toggle_state *fx_toggle_state = (struct fx_toggle_state *)state;
+    fx_toggle(fx_toggle_state->amp, fx_toggle_state->fx);
+}
+
 // Draw UX screen:
 void ux_draw(void) {
     // Only redraw if necessary:
@@ -501,7 +511,7 @@ void ux_draw(void) {
             buf += ansi_move_cursor(buf, row, 0);
             buf += sprintf(buf, "Volume: %3d", amp.volume);
             buf = ux_hslider_draw(buf, row, 12, 32, amp.volume + 1, 128);
-            component_touching_action(component, row, 12, 32, (void *)a, volume_slider_touching);
+            component_touching_action(component, row, 12, 32, (void *)(uintptr_t)a, volume_slider_touching);
             component++;
 
             // Draw horizontal slider box for gain:
@@ -509,7 +519,7 @@ void ux_draw(void) {
             buf += ansi_move_cursor(buf, row, 0);
             buf += sprintf(buf, "Gain:   %3d", amp.gain[amp.tone]);
             buf = ux_hslider_draw(buf, row, 12, 32, amp.gain[amp.tone] + 1, 128);
-            component_touching_action(component, row, 12, 32, (void *)a, gain_slider_touching);
+            component_touching_action(component, row, 12, 32, (void *)(uintptr_t)a, gain_slider_touching);
             component++;
 
             ++row;
@@ -523,7 +533,12 @@ void ux_draw(void) {
                 if (amp.fx_enabled[fx]) {
                     buf += sprintf(buf, ANSI_CSI"0m");
                 }
-                //component_pressed_action(component, row, fx * (5+4), fx * (5+4) + 7, );
+
+                struct fx_toggle_state fx_toggle_state = {
+                    .amp = a,
+                    .fx = fx
+                };
+                component_pressed_action(component, row, fx * (5+4), fx * (5+4) + 7, (void *)&fx_toggle_state, fx_toggle_action);
                 component++;
             }
             ++row;

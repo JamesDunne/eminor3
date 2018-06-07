@@ -678,6 +678,10 @@ void volume_set(int amp, u8 new_volume) {
     }
 }
 
+void fx_toggle(int amp, int fx) {
+    curr.amp[amp].fx ^= (1 << fx);
+}
+
 // set the controller to an initial state
 void controller_init(void) {
     u8 i;
